@@ -22,3 +22,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+
+# Expo (mobile/)
+.expo
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Supabase CLI (services/)
+.branches
+.temp
