@@ -38,7 +38,10 @@ export class SupabaseAuthRepository implements AuthRepository {
   async signInWithGoogle(): Promise<Result<Usuario, AuthError>> {
     // Rota existente do app: no Expo Go vira exp://…/--/login, em build vira encontresaude:///login.
     // Ambas precisam estar em Authentication → URL Configuration → Redirect URLs.
+    // Se não estiverem, o Supabase ignora este valor e redireciona para o Site URL
+    // do projeto (o site na Vercel) — o browser abre a página e nunca volta ao app.
     const redirectTo = Linking.createURL('/login');
+    if (__DEV__) console.log('[auth] redirectTo (autorize esta URL no Supabase):', redirectTo);
 
     const { data, error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -47,7 +50,13 @@ export class SupabaseAuthRepository implements AuthRepository {
     if (error) return err(toAuthError(error));
 
     const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-    if (res.type !== 'success') return err(new AuthError('Login com Google cancelado'));
+    if (res.type !== 'success') {
+      return err(
+        new AuthError(
+          `Login com Google não retornou ao app. Verifique se ${redirectTo} está em Authentication → URL Configuration → Redirect URLs no Supabase.`,
+        ),
+      );
+    }
 
     const restaurado = await this.restaurarSessaoDeLink(res.url);
     if (!restaurado.ok) return restaurado;
