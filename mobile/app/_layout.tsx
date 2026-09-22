@@ -15,6 +15,11 @@ import { colors } from '@presentation/theme';
 
 SplashScreen.preventAutoHideAsync();
 
+// REGRA: login obrigatório. Diferente do site, o app não tem área pública.
+// No passo 6 o AuthProvider entra aqui e `logado` passa a vir de useAuth();
+// até lá, o guard fica aberto para permitir navegar pelo esqueleto.
+const logado = true;
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Outfit_300Light,
@@ -32,12 +37,18 @@ export default function RootLayout() {
 
   return (
     <QueryProvider>
-      {/* passo 6: envolver com <AuthProvider> */}
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="pre-prontuario" options={{ presentation: 'modal', headerShown: true, title: 'Pré-prontuário' }} />
+        <Stack.Protected guard={logado}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="pre-prontuario"
+            options={{ presentation: 'modal', headerShown: true, title: 'Pré-prontuário' }}
+          />
+        </Stack.Protected>
+        <Stack.Protected guard={!logado}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
       </Stack>
     </QueryProvider>
   );

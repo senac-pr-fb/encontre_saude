@@ -3,18 +3,15 @@ import { Link } from 'expo-router';
 import { Button, Screen } from '@presentation/components/ui';
 import { colors, fonts, fontSizes } from '@presentation/theme';
 
-// Home: triagem de sintomas (passo 11). Por enquanto valida tema, fonte e navegação.
+// Home: triagem de sintomas (passo 11). Usuário sempre autenticado aqui (login obrigatório).
 export default function HomeScreen() {
   return (
     <Screen>
       <Text style={styles.title}>Encontre Saúde</Text>
       <Text style={styles.subtitle}>Descreva seus sintomas e receba uma orientação inicial.</Text>
       <Button title="Analisar sintomas" onPress={() => {}} />
-      <Link href="/(auth)/login" asChild>
-        <Button title="Entrar" variant="secondary" />
-      </Link>
       <Link href="/pre-prontuario" asChild>
-        <Button title="Pré-prontuário" variant="ghost" />
+        <Button title="Pré-prontuário" variant="secondary" />
       </Link>
     </Screen>
   );

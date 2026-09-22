@@ -56,6 +56,7 @@ Apêndices: [A. Mapa web → mobile](#apêndice-a--mapa-web--mobile) · [B. Stac
 | Farmácias | continuam no Postgres do Supabase; sem SQLite local |
 | Use cases | classes com `execute()`; resto em funções |
 | Injeção de dependência | objeto simples em `core/di/container.ts`; sem biblioteca |
+| **Login obrigatório** | **Diferente do site**, o app inteiro exige usuário autenticado. Sem sessão, só o grupo `(auth)` é acessível |
 
 ---
 
@@ -545,11 +546,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
 export const useAuth = () => useContext(AuthContext);
 ```
 
-Proteção de rotas em `app/_layout.tsx`: se `carregando`, splash; se `!usuario` e a rota está em `(tabs)/perfil` ou `pre-prontuario`, `<Redirect href="/(auth)/login" />`. Home, socorros, prevenção e farmácias continuam públicas, como no site.
+**Proteção de rotas — login obrigatório.** Diferente do site, o app não tem área pública. O gate fica num único lugar, `app/_layout.tsx`, usando `Stack.Protected` do expo-router:
+
+```tsx
+const { usuario, carregando } = useAuth();
+if (carregando) return null;            // splash continua visível
+
+<Stack screenOptions={{ headerShown: false }}>
+  <Stack.Protected guard={!!usuario}>
+    <Stack.Screen name="(tabs)" />
+    <Stack.Screen name="pre-prontuario" options={{ presentation: 'modal' }} />
+  </Stack.Protected>
+  <Stack.Protected guard={!usuario}>
+    <Stack.Screen name="(auth)" />
+  </Stack.Protected>
+</Stack>
+```
+
+Sem sessão, qualquer rota fora de `(auth)` redireciona para o login; com sessão, `(auth)` fica inacessível e o app cai em `(tabs)/index`. O logout (em Perfil) derruba a sessão e o `onAuthStateChange` faz o redirecionamento sozinho.
+
+Consequências nos passos seguintes: some toda lógica condicional "se logado" que existe no site (sidebar, histórico da triagem, pré-prontuário) — `useAuth().usuario` nunca é `null` dentro de `(tabs)`.
 
 Telas: `login.tsx`, `cadastro.tsx`, `recuperar-senha.tsx` — formulários com `react-hook-form` + schema `zod`, `PasswordInput` com ícone de olho (substitui `shared/toggle_senha.js`).
 
-**Pronto quando:** cria conta, loga, vê o e-mail na aba Perfil, desloga, loga com Google, recupera senha pelo e-mail abrindo o app. Fechar e reabrir o app mantém a sessão.
+**Pronto quando:** abrir o app sem sessão cai no login; cria conta, loga, vê o e-mail na aba Perfil; desloga e volta ao login; loga com Google, recupera senha pelo e-mail abrindo o app. Fechar e reabrir o app mantém a sessão.
 
 ---
 
@@ -822,9 +842,9 @@ O `supabase-js` envia o JWT do usuário automaticamente. O prompt mestre, o pars
 
 ### Presentation
 
-- `useTriagem()` — `useMutation` para analisar + `useQuery(['historico', userId])` para o histórico (só se logado, como no site).
+- `useTriagem()` — `useMutation` para analisar + `useQuery(['historico', userId])` para o histórico (usuário sempre logado no app).
 - Home: campo de texto multiline, botão **Analisar**, `TriagemResultCard` com a cor do nível (`NIVEIS[nivel].cor`), seções resumo/recomendação/primeiros socorros/unidade, chips dos sintomas detectados.
-- Lista de histórico abaixo, para usuários logados.
+- Lista de histórico abaixo.
 
 **Pronto quando:** descrever sintomas devolve o card colorido; logado, a interação aparece no histórico e na tabela `historico_ia`.
 
