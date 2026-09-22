@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { SEXOS } from '@domain/entities/PerfilSaude';
 import { perfilSchema, type PerfilFormInput, type PerfilFormOutput } from '@domain/usecases/perfil';
 import { Body, Button, Card, ErrorMessage, Input, Opcoes, SuccessMessage, Toggle } from '@presentation/components/ui';
-import { mascararCPF, mascararTelefone } from '@core/utils/formato';
+import { mascararCPF, mascararData, mascararTelefone } from '@core/utils/formato';
 import { spacing } from '@presentation/theme';
 
 interface Props {
@@ -59,8 +59,9 @@ export function PerfilForm({ valoresIniciais, onSubmit, salvando, erro, sucesso 
           control={control}
           name="dataNascimento"
           label="Data de nascimento"
-          placeholder="AAAA-MM-DD"
-          autoCapitalize="none"
+          placeholder="dd/mm/aaaa"
+          keyboardType="number-pad"
+          mascara={mascararData}
         />
         <Texto
           control={control}

@@ -45,3 +45,20 @@ export function mascararData(valor: string): string {
   if (v.length > 2) return v.replace(/(\d{2})(\d{1,2})/, '$1/$2');
   return v;
 }
+
+/**
+ * Data ISO (AAAA-MM-DD) que existe de fato no calendario e serve como
+ * nascimento: rejeita 31/02, ano irreal e datas no futuro.
+ */
+export function ehDataNascimentoValida(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const [ano, mes, dia] = iso.split('-').map(Number);
+  if (ano < 1900 || ano > new Date().getFullYear()) return false;
+  if (mes < 1 || mes > 12) return false;
+
+  const d = new Date(Date.UTC(ano, mes - 1, dia));
+  // getUTCDate difere do dia informado quando o mes nao tem aquele dia (31/02 -> 03/03)
+  if (d.getUTCFullYear() !== ano || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) return false;
+
+  return d.getTime() <= Date.now();
+}

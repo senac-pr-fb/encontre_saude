@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SEXOS, type PerfilSaude } from '@domain/entities/PerfilSaude';
+import { dataParaBR, dataParaISO, ehDataNascimentoValida } from '@core/utils/formato';
 
 /**
  * Schema único do formulário de perfil: valida e converte.
@@ -31,11 +32,12 @@ const cpfOpcional = z
   })
   .refine((v) => v === null || v.length === 11, 'O CPF precisa ter 11 dígitos');
 
+/** Entra como dd/mm/aaaa (padrão pt-BR); sai como AAAA-MM-DD, formato da coluna date. */
 const dataOpcional = z
   .string()
   .trim()
-  .transform((s) => (s === '' ? null : s))
-  .refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), 'Informe uma data válida');
+  .transform((s) => (s === '' ? null : dataParaISO(s)))
+  .refine((v) => v === null || ehDataNascimentoValida(v), 'Informe uma data válida, no formato dd/mm/aaaa');
 
 const emailOpcional = z
   .string()
@@ -94,7 +96,7 @@ export function perfilParaFormulario(p: PerfilSaude): PerfilFormInput {
     altura: txt(p.altura),
     sexo: p.sexo,
     cpf: txt(p.cpf),
-    dataNascimento: txt(p.dataNascimento),
+    dataNascimento: dataParaBR(p.dataNascimento),
     telefone: txt(p.telefone),
     fuma: p.fuma,
     bebe: p.bebe,
