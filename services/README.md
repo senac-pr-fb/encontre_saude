@@ -18,7 +18,7 @@ services/
 | `dados_saude` | Ficha de saúde do usuário (1 linha por `user_id`) | dono da linha |
 | `historico_ia` | Interações com a triagem de sintomas | dono da linha |
 | `sintomas_atendimento` | Sintomas detectados em cada interação (`historico_id`) | dono do histórico |
-| `pharmacies` | Farmácias de Francisco Beltrão (nome, endereço, bairro, lat/lng, tipo…) | leitura pública |
+| ~~`pharmacies`~~ | **Removida** — as farmácias migraram para o Firestore (coleção `pharmacies`) | — |
 
 ## Setup (uma vez por máquina)
 

@@ -53,7 +53,7 @@ Apêndices: [A. Mapa web → mobile](#apêndice-a--mapa-web--mobile) · [B. Stac
 | Formulários | `react-hook-form` + `zod` |
 | Mapa | `react-native-maps` |
 | Sessão | `expo-secure-store` (dados de saúde → LGPD) |
-| Farmácias | continuam no Postgres do Supabase; sem SQLite local |
+| Farmácias | **Firestore** (coleção `pharmacies`), lido pela API REST — não pelo SDK do Firebase; sem SQLite local |
 | Use cases | classes com `execute()`; resto em funções |
 | Injeção de dependência | objeto simples em `core/di/container.ts`; sem biblioteca |
 | **Login obrigatório** | **Diferente do site**, o app inteiro exige usuário autenticado. Sem sessão, só o grupo `(auth)` é acessível |
@@ -702,7 +702,7 @@ export interface Farmacia {
   horario: string | null;
   site: string | null;
   instagram: string | null;
-  tipo: 'municipal' | 'privada';
+  tipo: 'Municipal' | 'Privada';   // capitalizado, como vem do Firestore
   lat: number;
   lng: number;
 }
@@ -719,26 +719,51 @@ Filtro é regra pura, sem I/O — vive em um use case e é testável:
 
 ```ts
 // src/domain/usecases/farmacias/FiltrarFarmacias.ts
-export interface FiltroFarmacias { termo: string; bairro: string | null; municipal: boolean; privada: boolean }
+export interface FiltroFarmacias { termo: string; bairro: string | null; tipos: TipoFarmacia[] }
 
-export function filtrarFarmacias(lista: Farmacia[], f: FiltroFarmacias): Farmacia[] {
-  const termo = f.termo.toLowerCase().trim();
-  return lista.filter((x) => {
-    const matchTexto = !termo || x.nome.toLowerCase().includes(termo) || x.bairro.toLowerCase().includes(termo);
-    const matchBairro = !f.bairro || x.bairro === f.bairro;
-    const matchTipo = (x.tipo === 'municipal' && f.municipal) || (x.tipo === 'privada' && f.privada);
-    return matchTexto && matchBairro && matchTipo;
+export function filtrarFarmacias(lista: Farmacia[], filtro: FiltroFarmacias): Farmacia[] {
+  const termo = filtro.termo.trim().toLowerCase();
+  return lista.filter((f) => {
+    const combinaTexto = termo === '' || f.nome.toLowerCase().includes(termo) || f.bairro.toLowerCase().includes(termo);
+    const combinaBairro = filtro.bairro === null || f.bairro === filtro.bairro;
+    const combinaTipo = filtro.tipos.includes(f.tipo);
+    return combinaTexto && combinaBairro && combinaTipo;
   });
 }
 
-export const bairrosDe = (lista: Farmacia[]) => [...new Set(lista.map((f) => f.bairro))].sort();
+export const bairrosDe = (lista: Farmacia[]) =>
+  [...new Set(lista.map((f) => f.bairro))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 ```
 
-> A lista de bairros **deixa de ser hardcoded**: é derivada das farmácias cadastradas. Cadastrou farmácia em bairro novo, o filtro atualiza sozinho.
+> A lista de bairros **deixa de ser hardcoded**: é derivada das farmácias cadastradas. A lista fixa do site já está desatualizada — tem 12 bairros e classifica *Industrial* como "sem farmácia", mas os dados reais têm 15, incluindo Industrial, Cidade Leste e Jardim Italia.
 
-### Data
+### Data — Firestore, não Supabase
 
-`SupabaseFarmaciaRepository.listar()` = `from('pharmacies').select('*').order('nome')`. O mapper normaliza `tipo` (`trim().toLowerCase()`, como o site já faz defensivamente).
+As farmácias **migraram para o Firebase**: a tabela `pharmacies` do Postgres não existe mais (`PGRST205`), e os dados vivem na coleção `pharmacies` do Firestore.
+
+`FirestoreFarmaciaRepository.listar()` lê essa coleção pela API REST (`GET /v1/projects/{id}/databases/(default)/documents/pharmacies`), decodifica os valores tipados (`stringValue`, `doubleValue`, `geoPointValue`, `nullValue`) e ordena por nome.
+
+**Por que REST e não o SDK do Firebase:** o catálogo é público e somente leitura. O SDK acrescentaria ~200 KB ao bundle, um segundo runtime de autenticação e os problemas conhecidos de long-polling em React Native, sem trazer nada necessário — o cache fica por conta do TanStack Query. Se um dia houver escrita ou tempo real, troca-se a implementação dentro de `data/`, sem tocar em mais nada.
+
+**Formato real dos 53 documentos** (levantado em 22/09/2026):
+
+| Observação | Consequência no mapper |
+|---|---|
+| Todos têm `lat`/`lng` **e** um `location` geopoint, sempre coerentes | Usa `lat`/`lng`; o geopoint fica de reserva |
+| `tipo` vem capitalizado: `"Privada"` (46), `"Municipal"` (7) | Normaliza sem diferenciar maiúsculas — o site compara em minúsculas |
+| `instagram` é `null` em todos os 53; `site` só em 5 | A UI só renderiza o que existe |
+| Um documento não tem `endereco` | `endereco` é `string \| null` na entidade |
+
+**Regras do Firestore.** Sem elas a leitura é negada com `PERMISSION_DENIED`. Atenção: o app autentica no **Supabase**, então uma regra `if request.auth != null` nunca passaria — para o Firestore o usuário é sempre anônimo.
+
+```js
+match /pharmacies/{doc} {
+  allow read: if true;     // catálogo público
+  allow write: if false;   // só pelo Console ou Admin SDK
+}
+```
+
+> **O site ficou quebrado nessa migração:** `frontend/Services/pharmacyService.js` ainda consulta a tabela do Supabase e, como trata o erro devolvendo `[]`, a página de farmácias exibe mapa e lista vazios sem nenhum aviso.
 
 ### Presentation
 
@@ -929,7 +954,6 @@ Com a anon key pública e RLS desligado, qualquer pessoa lê `dados_saude` intei
 alter table dados_saude          enable row level security;
 alter table historico_ia         enable row level security;
 alter table sintomas_atendimento enable row level security;
-alter table pharmacies           enable row level security;
 
 create policy "dono do perfil" on dados_saude
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -945,7 +969,6 @@ create policy "dono dos sintomas" on sintomas_atendimento
     exists (select 1 from historico_ia h where h.id = historico_id and h.user_id = auth.uid())
   );
 
-create policy "farmacias publicas" on pharmacies for select using (true);
 ```
 
 ```bash
@@ -1048,7 +1071,7 @@ No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRe
 | `Services/authService.js` | `data/supabase/SupabaseAuthRepository.ts` + `domain/usecases/auth/*` |
 | `Services/profileService.js` | `SupabasePerfilRepository` + `GetPerfil`/`SavePerfil` + `mappers/perfilMapper.ts` |
 | `Services/chatService.js` | `SupabaseTriagemRepository.historico()`; a gravação vai para a Edge Function |
-| `Services/pharmacyService.js` | `SupabaseFarmaciaRepository` + `ListarFarmacias` |
+| `Services/pharmacyService.js` | `FirestoreFarmaciaRepository` + `ListarFarmacias` (os dados migraram para o Firestore) |
 | `config/env.js` | `core/config/env.ts` (validado com zod) |
 | `config/supabaseClient.js` | `data/supabase/client.ts` (SecureStore adapter) |
 | `config/config.css` | `presentation/theme/tokens.ts` + `typography.ts` |

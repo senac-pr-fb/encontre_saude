@@ -34,6 +34,9 @@ Cada projeto tem seu próprio `.env` (nunca commitado):
 |---|---|---|---|
 | URL do Supabase | `VITE_SUPABASE_URL` | `EXPO_PUBLIC_SUPABASE_URL` | injetada automaticamente |
 | Anon key do Supabase | `VITE_SUPABASE_ANON_KEY` | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | injetada automaticamente |
+| Config do Firebase | — | `EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | — |
 | Chave do Gemini | — | — | `GEMINI_API_KEY` |
 
-A anon key é pública por design; a segurança dos dados vem das policies de RLS no banco. A chave do Gemini **só existe no servidor** (ver a seção final do guia).
+A anon key do Supabase e a config do Firebase são públicas por design; o que protege os dados são as policies de RLS no Postgres e as regras do Firestore. A chave do Gemini **só existe no servidor** (ver a seção final do guia).
+
+> As farmácias migraram do Postgres para o **Firestore** (coleção `pharmacies`). O app já lê de lá; o site ainda aponta para a tabela removida do Supabase e, por isso, exibe a página de farmácias vazia.
