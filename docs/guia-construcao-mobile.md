@@ -37,7 +37,7 @@ Apêndices: [A. Mapa web → mobile](#apêndice-a--mapa-web--mobile) · [B. Stac
 
 **Pré-requisitos na máquina:**
 
-- Node 20+ e npm
+- Node **20.19.4+** e npm (o Expo SDK 57 recusa versões anteriores; `node -v` para conferir)
 - App **Expo Go** no celular (iOS ou Android) para testar sem build
 - Conta no [expo.dev](https://expo.dev) (necessária só no passo 12)
 - Acesso ao projeto Supabase (URL e anon key — pegue em *Project Settings → API*)
@@ -82,9 +82,16 @@ npm i aes-js && npm i -D @types/aes-js
 npm i @tanstack/react-query react-hook-form zod @hookform/resolvers
 npx expo install @expo/vector-icons expo-font @expo-google-fonts/outfit
 
-# mapa, browser (OAuth), links
-npx expo install react-native-maps expo-web-browser
+# mapa, browser (OAuth), links, splash
+npx expo install react-native-maps expo-web-browser expo-splash-screen
+
+# lint (cria eslint.config.js automaticamente)
+npx expo install -- --save-dev eslint eslint-config-expo
 ```
+
+> Se o `npm install` das bibliotecas não-Expo falhar com `ERESOLVE` citando `react-dom`, rode antes
+> `npx expo install react-dom` — o npm tenta resolver o peer opcional `react-dom` do Expo para uma
+> versão mais nova que o `react` do SDK, e fixá-lo na versão compatível resolve.
 
 Configure o expo-router em `package.json` e `app.json`:
 
@@ -107,13 +114,15 @@ Configure o expo-router em `package.json` e `app.json`:
 }
 ```
 
-Crie `app/_layout.tsx` e `app/index.tsx` mínimos e rode:
+Apague `App.tsx` e `index.ts` do template (o expo-router assume a entrada), crie `app/_layout.tsx` e `app/index.tsx` mínimos e rode:
 
 ```bash
 npx expo start
 ```
 
-**Pronto quando:** o QR code abre o app no Expo Go e mostra a tela `index`.
+Adicione ao `package.json` os scripts `"typecheck": "tsc --noEmit"` e `"lint": "expo lint"` — rode os dois antes de dar qualquer passo por concluído.
+
+**Pronto quando:** o QR code abre o app no Expo Go e mostra a tela `index`; `npm run typecheck` e `npm run lint` passam.
 
 ---
 
@@ -192,16 +201,18 @@ Se isso for respeitado, trocar Supabase por outro backend muda apenas `data/`.
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "baseUrl": ".",
     "paths": {
-      "@domain/*": ["src/domain/*"],
-      "@data/*": ["src/data/*"],
-      "@presentation/*": ["src/presentation/*"],
-      "@core/*": ["src/core/*"]
+      "@domain/*": ["./src/domain/*"],
+      "@data/*": ["./src/data/*"],
+      "@presentation/*": ["./src/presentation/*"],
+      "@core/*": ["./src/core/*"]
     }
   }
 }
 ```
+
+> Sem `baseUrl`: o TypeScript 6 (que o SDK 57 instala) marca a opção como obsoleta e falha o `tsc`.
+> Com `paths` relativos a `./`, tanto o `tsc` quanto o Metro do Expo resolvem os aliases.
 
 **Pronto quando:** a árvore existe (use `.gitkeep` nas pastas vazias) e `import { x } from '@domain/...'` resolve no editor.
 
@@ -272,7 +283,7 @@ Os níveis de urgência da triagem (`niveis` em `sintomas_ai/api.js`) **não** v
 import { z } from 'zod';
 
 const schema = z.object({
-  EXPO_PUBLIC_SUPABASE_URL: z.string().url(),
+  EXPO_PUBLIC_SUPABASE_URL: z.url(), // zod 4
   EXPO_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
