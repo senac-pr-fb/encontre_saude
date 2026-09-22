@@ -1,5 +1,3 @@
-| `expo-sharing` | Compartilhar pré-prontuário |
-| `react-native-webview` | Vídeos do YouTube nos primeiros socorros |
 # Guia de construção do app mobile (Expo + Clean Architecture)
 
 Este guia descreve, passo a passo, como converter o site `frontend/` em um app React Native na pasta `mobile/`, reaproveitando o backend Supabase já existente.
@@ -1142,4 +1140,5 @@ No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRe
 | `@expo/vector-icons` | Ícones (FontAwesome6) |
 | `@expo-google-fonts/outfit` | Fonte do site |
 | `expo-sharing` | Compartilhar pré-prontuário |
+| `react-native-webview` | Vídeos do YouTube nos primeiros socorros |
 | `jest` + `@testing-library/react-native` | Testes (`domain/` testa sem mocks) |
