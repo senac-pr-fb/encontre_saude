@@ -1,9 +1,10 @@
-import type { TopicoSocorro } from "@domain/entities/Conteudo";
+import type { TopicoSocorro } from '@domain/entities/Conteudo';
 
 /**
- * Extraido de frontend/pages/primeiro_socorros_pages/js/init_primeiros_socorros.js,
- * onde o texto vive como HTML dentro do JS. Aqui vira dado tipado: o app renderiza
- * componentes, nao HTML.
+ * Extraído de frontend/pages/primeiro_socorros_pages/js/init_primeiros_socorros.js,
+ * onde o texto vive como HTML dentro do JS e os vídeos num mapa à parte.
+ * Aqui vira dado tipado: o app renderiza componentes, não HTML.
+ * `video` é o id do YouTube (o site usa a URL de embed inteira).
  */
 export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
   {
@@ -46,7 +47,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Essa manobra pode ser feita quando a técnica para engasgamento leve não teve resultado ou quando as vias aéreas estão completamente obstruídas, que pode ser identificada quando a pessoa não consegue tossir, falar ou chorar."
         ]
       }
-    ]
+    ],
+    video: "C2c0BIJygYI"
   },
   {
     id: "massagem-cardiaca",
@@ -71,7 +73,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Repita essa ação em cerca de 100 a 120 vezes por minuto até que uma ambulância chegue ou pelo tempo que puder."
         ]
       }
-    ]
+    ],
+    video: "sKtHkqUWNgE"
   },
   {
     id: "desmaio",
@@ -93,7 +96,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Se a pessoa demorar mais de 1 minuto para acordar, é recomendado chamar uma ambulância através do número 192 e verificar novamente se está respirando, iniciando a massagem cardíaca, caso não esteja."
         ]
       }
-    ]
+    ],
+    video: "VxJNguOcYgo"
   },
   {
     id: "convulsao",
@@ -120,7 +124,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Se a pessoa não estiver respirando ou não tiver pulso, deve-se iniciar a massagem cardíaca."
         ]
       }
-    ]
+    ],
+    video: "sVZaYNL2Vkk"
   },
   {
     id: "intoxicacao",
@@ -187,7 +192,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Iniciar a massagem cardíaca, caso a pessoa não esteja respirando, até a chegada da ambulância."
         ]
       }
-    ]
+    ],
+    video: "Pm3Iw3pxaS4"
   },
   {
     id: "afogamento",
@@ -211,7 +217,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Se estiver inconsciente e não estiver respirando, é recomendado iniciar a massagem cardíaca na vítima."
         ]
       }
-    ]
+    ],
+    video: "CiBaKoPl4IM"
   },
   {
     id: "queimadura",
@@ -262,7 +269,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Uma vez que todas as camadas de pele estão afetadas, os nervos, glândulas, músculos e até órgãos internos podem sofrer lesões graves. Neste tipo de queimadura pode não se sentir dor devido à destruição dos nervos, mas é necessária ajuda médica imediata para evitar complicações graves, assim como infecções."
         ]
       }
-    ]
+    ],
+    video: "Klcs7ZmMOlE"
   },
   {
     id: "transporte-de-vitimas",
@@ -275,7 +283,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Caso não haja dor aparente, com o auxílio de uma tábua ou cobertor, improvise uma maca para transportá-la até o posto de saúde mais próximo. Durante o transporte, mantenha sempre a cabeça da vítima elevada e evite movimentos bruscos ao longo do trajeto."
         ]
       }
-    ]
+    ],
+    video: "JttAYDeuSyg"
   },
   {
     id: "fratura",
@@ -299,7 +308,8 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
           "Aguardar o auxílio médico. Caso não seja possível, recomenda-se levar a vítima para o pronto-socorro mais próximo."
         ]
       }
-    ]
+    ],
+    video: "RT6th-_fbOo"
   }
 ];
 

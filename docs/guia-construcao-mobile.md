@@ -1,3 +1,5 @@
+| `expo-sharing` | Compartilhar pré-prontuário |
+| `react-native-webview` | Vídeos do YouTube nos primeiros socorros |
 # Guia de construção do app mobile (Expo + Clean Architecture)
 
 Este guia descreve, passo a passo, como converter o site `frontend/` em um app React Native na pasta `mobile/`, reaproveitando o backend Supabase já existente.
@@ -804,7 +806,7 @@ export type BlocoConteudo =
   | { tipo: 'paragrafo'; texto: string; destaque?: boolean }
   | { tipo: 'lista'; itens: string[] };
 
-export interface TopicoSocorro { id: string; titulo: string; blocos: BlocoConteudo[] }
+export interface TopicoSocorro { id: string; titulo: string; blocos: BlocoConteudo[]; video: string | null }
 export interface TopicoPrevencao { id: string; titulo: string; imagem: string | null; paragrafos: string[] }
 ```
 
@@ -812,17 +814,18 @@ export interface TopicoPrevencao { id: string; titulo: string; imagem: string | 
 
 Converter 500 linhas à mão é lento e erra. Um script de uso único resolve: ele lê os arquivos do site, quebra o HTML em pedaços por `<p>`, classifica cada um (item de lista quando começa com `<b>-</b>`, subtítulo quando é `1. Texto`, parágrafo no resto), agrupa itens consecutivos numa `lista` e escreve os `.ts` de `src/data/static/`. Rode no scratchpad, confira o resultado e descarte o script.
 
-Resultado: **9 tópicos** de primeiros socorros, **10 dicas** rotativas, **6 tópicos** de prevenção.
+Resultado: **9 tópicos** de primeiros socorros (cada um com seu vídeo), **10 dicas** rotativas, **6 tópicos** de prevenção.
 
 > Duas armadilhas na extração: a regex das dicas pega strings do resto do arquivo se não limitar ao trecho do array; e o texto de primeiros socorros cita "como mostra o passo 1 da imagem", mas essas imagens não existem no repositório — as frases ficaram como estão, já que descrevem o passo em palavras.
 
 ### Telas
 
 - **Primeiros socorros:** acordeão por tópico (`LayoutAnimation` para a expansão), ícone por assunto (`lungs`, `heart-pulse`, `fire`…), a dica rotativa do site (troca a cada 10 s, igual ao `setInterval` do original) e uma faixa de **telefones de emergência** que liga direto — SAMU 192, Bombeiros 193 e CIAT 0800 722 6001, que no site aparecem só no meio do texto.
+- **Vídeos:** cada um dos 9 tópicos tem um vídeo do YouTube, que no site é um `<iframe>` e aqui vira `react-native-webview` (já incluída no Expo Go, dispensa development build). O campo `video` guarda só o id; a URL de embed se monta na hora. A WebView só é criada **depois do toque no play** — nove WebViews vivas numa lista consumiriam memória à toa, já que o acordeão permite abrir vários tópicos. Se o embed falhar, o card oferece abrir no app do YouTube.
 - **Prevenção:** mesmo acordeão, com a imagem de capa de cada tópico. As imagens são links externos (Google/gstatic) herdados do site: se falharem, o `onError` esconde a capa e o texto continua.
 - Um aviso no rodapé deixa claro que o conteúdo é informativo e não substitui atendimento.
 
-**Pronto quando:** as duas abas mostram o mesmo conteúdo do site, os acordeões abrem e fecham, e os botões de emergência abrem o discador.
+**Pronto quando:** as duas abas mostram o mesmo conteúdo do site, os acordeões abrem e fecham, os vídeos tocam embutidos e os botões de emergência abrem o discador.
 
 ---
 
@@ -1116,6 +1119,7 @@ No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRe
 | `farmacias_pages/js/create_bairros.js` | `bairrosDe()` derivado da lista + `BairroPicker` |
 | `primeiro_socorros_pages/js/dicas.js` + `init_primeiros_socorros.js` (HTML em string) | `data/static/primeirosSocorros.ts` — blocos tipados, renderizados por `components/features/conteudo/` |
 | `prevencao_pages/js/info_prevencao.js` | `data/static/prevencao.ts` |
+| `<iframe>` do YouTube em `init_primeiros_socorros.js` | `components/features/conteudo/VideoYouTube.tsx` (`react-native-webview`) |
 | `pre_prontuario_pages/pre_prontuario.js` | `app/pre-prontuario.tsx` + `PreProntuarioForm` |
 | `window.print()` | `expo-sharing` |
 | `window.location.href = …` | `router.push()` / `<Redirect>` |

@@ -7,6 +7,7 @@ import { Screen, Subtitle, Title } from '@presentation/components/ui';
 import { Acordeao } from '@presentation/components/features/conteudo/Acordeao';
 import { Blocos } from '@presentation/components/features/conteudo/Blocos';
 import { Emergencias } from '@presentation/components/features/conteudo/Emergencias';
+import { VideoYouTube } from '@presentation/components/features/conteudo/VideoYouTube';
 import { colors, fonts, fontSizes, radius, spacing } from '@presentation/theme';
 
 const sorteia = () => Math.floor(Math.random() * DICAS_RAPIDAS.length);
@@ -36,6 +37,7 @@ export default function PrimeirosSocorrosScreen() {
 
       {PRIMEIROS_SOCORROS.map((topico) => (
         <Acordeao key={topico.id} titulo={topico.titulo} icone={ICONES_SOCORRO[topico.id] ?? 'kit-medical'}>
+          {topico.video ? <VideoYouTube id={topico.video} /> : null}
           <Blocos blocos={topico.blocos} />
         </Acordeao>
       ))}

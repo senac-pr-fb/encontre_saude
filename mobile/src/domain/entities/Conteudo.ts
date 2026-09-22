@@ -13,6 +13,8 @@ export interface TopicoSocorro {
   id: string;
   titulo: string;
   blocos: BlocoConteudo[];
+  /** Id do video no YouTube; o site embute a URL completa num <iframe>. */
+  video: string | null;
 }
 
 export interface TopicoPrevencao {
