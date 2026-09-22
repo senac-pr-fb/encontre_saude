@@ -1,6 +1,6 @@
 import { PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '@presentation/theme';
 
 interface Props extends PropsWithChildren {
@@ -9,12 +9,21 @@ interface Props extends PropsWithChildren {
 
 /** Container padrão de tela: fundo, safe area e padding do site. */
 export function Screen({ children, scroll = true }: Props) {
-  const Body = scroll ? ScrollView : View;
+  const insets = useSafeAreaInsets();
+  // Android edge-to-edge: a barra de navegação cobre o fim da tela. Somamos o
+  // inset ao padding do conteúdo (e não à safe area) para que o último elemento
+  // fique acessível e a rolagem alcance ele, sem criar espaço morto nas abas.
+  const fim = { paddingBottom: spacing.md + insets.bottom };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <Body style={styles.body} contentContainerStyle={scroll ? styles.content : undefined}>
-        {children}
-      </Body>
+      {scroll ? (
+        <ScrollView style={styles.body} contentContainerStyle={[styles.content, fim]}>
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={[styles.body, fim]}>{children}</View>
+      )}
     </SafeAreaView>
   );
 }

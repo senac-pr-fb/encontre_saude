@@ -603,7 +603,8 @@ export interface PerfilSaude {
   doencasPreexistentes: string | null;
   historicoFamiliar: string | null;
   possuiDeficiencia: string | null;
-  contatoMedicoParticular: string;
+  /** Coluna jsonb `contato_medico_particular` — objeto, não texto. */
+  contatoMedico: { nome: string | null; email: string | null; telefone: string | null };
   sinaisVitais: {
     pressaoArterial: string | null;
     frequenciaCardiaca: number | null;
@@ -622,7 +623,9 @@ export interface PerfilRepository {
 }
 ```
 
-`SavePerfil.execute` concentra as validações que hoje estão no `profileService.saveProfile` e nos limites da UI (idade 0–130, peso 0–500, altura 0–3 m, saturação 0–100 etc.). Coloque-as num schema `zod` em `domain/usecases/perfil/perfilSchema.ts` — o mesmo schema alimenta o `react-hook-form` na tela.
+`SavePerfil.execute` concentra as validações do site (limites reais de `perfil.html`: idade 0–130, peso 0–300 kg, altura 0,30–3,00 m; mais saturação 0–100%, FC 20–250 bpm, temperatura 30–45 °C). Elas ficam num schema `zod` em `domain/usecases/perfil/perfilSchema.ts` que **valida e converte**: a entrada é sempre texto (é o que um `TextInput` entrega) e a saída já está no formato da entidade. O mesmo schema alimenta o `react-hook-form`, então as mensagens são as mesmas nos dois lugares.
+
+> **Cuidado herdado do site:** lá o formulário preenche 10 campos, mas o `profileService` monta o upsert com 20 — salvar zera alergias, medicamentos, doenças e sinais vitais. No app o formulário cobre todas as colunas, então isso não acontece.
 
 ### Data
 
@@ -639,7 +642,7 @@ export const perfilMapper = {
       alergiaMedicamento: d.alergia_medicamento, alergias: d.alergias,
       medicamentosEmUso: d.medicamentos_em_uso, doencasPreexistentes: d.doencas_preexistentes,
       historicoFamiliar: d.historico_familiar, possuiDeficiencia: d.possui_deficiencia,
-      contatoMedicoParticular: d.contato_medico_particular ?? '',
+      contatoMedico: lerContato(d.contato_medico_particular),
       sinaisVitais: {
         pressaoArterial: d.pressao_arterial, frequenciaCardiaca: d.frequencia_cardiaca,
         temperatura: d.temperatura, saturacaoOxigenio: d.saturacao_oxigenio,
