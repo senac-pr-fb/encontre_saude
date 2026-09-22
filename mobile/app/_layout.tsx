@@ -11,14 +11,10 @@ import {
   Outfit_700Bold,
 } from '@expo-google-fonts/outfit';
 import { QueryProvider } from '@presentation/providers/QueryProvider';
-import { colors } from '@presentation/theme';
+import { AuthProvider, useAuth } from '@presentation/providers/AuthProvider';
+import { colors, fonts } from '@presentation/theme';
 
 SplashScreen.preventAutoHideAsync();
-
-// REGRA: login obrigatório. Diferente do site, o app não tem área pública.
-// No passo 6 o AuthProvider entra aqui e `logado` passa a vir de useAuth();
-// até lá, o guard fica aberto para permitir navegar pelo esqueleto.
-const logado = true;
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -29,27 +25,49 @@ export default function RootLayout() {
     Outfit_700Bold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
-  }, [fontsLoaded]);
-
   if (!fontsLoaded) return null;
 
   return (
     <QueryProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-        <Stack.Protected guard={logado}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="pre-prontuario"
-            options={{ presentation: 'modal', headerShown: true, title: 'Pré-prontuário' }}
-          />
-        </Stack.Protected>
-        <Stack.Protected guard={!logado}>
-          <Stack.Screen name="(auth)" />
-        </Stack.Protected>
-      </Stack>
+      <AuthProvider>
+        <StatusBar style="dark" />
+        <RootStack />
+      </AuthProvider>
     </QueryProvider>
+  );
+}
+
+// REGRA: login obrigatório. Diferente do site, o app não tem área pública.
+// Único gate de rotas: sem sessão só (auth) existe; com sessão, (auth) some.
+function RootStack() {
+  const { usuario, carregando } = useAuth();
+  const logado = usuario !== null;
+
+  useEffect(() => {
+    if (!carregando) SplashScreen.hideAsync();
+  }, [carregando]);
+
+  if (carregando) return null; // splash continua visível
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.greenDark,
+        headerTitleStyle: { fontFamily: fonts.semibold },
+        headerShadowVisible: false,
+      }}
+    >
+      <Stack.Protected guard={logado}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="pre-prontuario" options={{ presentation: 'modal', headerShown: true, title: 'Pré-prontuário' }} />
+        <Stack.Screen name="nova-senha" options={{ headerShown: true, title: 'Nova senha' }} />
+      </Stack.Protected>
+      <Stack.Protected guard={!logado}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+    </Stack>
   );
 }

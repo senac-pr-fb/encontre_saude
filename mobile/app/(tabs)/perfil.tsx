@@ -1,16 +1,20 @@
-import { StyleSheet, Text } from 'react-native';
-import { Screen } from '@presentation/components/ui';
-import { colors, fonts, fontSizes } from '@presentation/theme';
+import { Body, Button, ErrorMessage, Screen, Subtitle, Title } from '@presentation/components/ui';
+import { useAuth } from '@presentation/providers/AuthProvider';
+import { useAuthActions } from '@presentation/hooks/useAuthActions';
 
-// Placeholder — implementar no passo 7 do guia (docs/guia-construcao-mobile.md).
+// Ficha de saúde entra no passo 7. Por enquanto: identificação + logout.
 export default function PerfilScreen() {
+  const { usuario } = useAuth();
+  const { signOut } = useAuthActions();
+
   return (
     <Screen>
-      <Text style={styles.title}>Meu Perfil</Text>
+      <Title>Meu Perfil</Title>
+      {usuario?.nome ? <Body>{usuario.nome}</Body> : null}
+      <Subtitle>{usuario?.email}</Subtitle>
+
+      <ErrorMessage message={signOut.error?.message} />
+      <Button title="Sair" variant="danger" onPress={() => signOut.mutate()} loading={signOut.isPending} />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  title: { fontFamily: fonts.bold, fontSize: fontSizes.xl, color: colors.greenDark },
-});

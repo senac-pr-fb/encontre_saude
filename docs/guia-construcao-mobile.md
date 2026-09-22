@@ -147,7 +147,8 @@ mobile/
 │   │   ├── prevencao.tsx
 │   │   ├── farmacias.tsx
 │   │   └── perfil.tsx
-│   └── pre-prontuario.tsx            # stack fora das tabs (fluxo multi-step)
+│   ├── pre-prontuario.tsx            # stack fora das tabs (fluxo multi-step)
+│   └── nova-senha.tsx                # visita 2 da recuperação de senha (aberta pelo link do e-mail)
 │
 ├── src/
 │   ├── domain/                       # núcleo. ZERO imports de RN, Expo ou Supabase
@@ -475,6 +476,10 @@ export interface AuthRepository {
   onAuthStateChange(cb: (usuario: Usuario | null, evento: string) => void): () => void;
   enviarRecuperacaoSenha(email: string): Promise<Result<void, AuthError>>;
   atualizarSenha(novaSenha: string): Promise<Result<void, AuthError>>;
+  /** Consome tokens de um deep link (OAuth, e-mail de recuperação). null se a URL não trazia sessão. */
+  restaurarSessaoDeLink(url: string): Promise<Result<"login" | "recuperacao" | null, AuthError>>;
+  iniciarAutoRefresh(): void;
+  pararAutoRefresh(): void;
 }
 ```
 
@@ -523,7 +528,7 @@ async signInWithGoogle() {
 
 > No dashboard do Supabase, em *Authentication → URL Configuration → Redirect URLs*, adicione `encontresaude://**` (produção) e a URL que `Linking.createURL` imprimir no Expo Go (formato `exp://…`).
 
-**Recuperação de senha** — no site, o link do e-mail volta para a página e o evento `PASSWORD_RECOVERY` mostra o formulário. No mobile, o link do e-mail deve abrir o app: use `redirectTo: Linking.createURL('/recuperar-senha')` e trate o deep link em `app/(auth)/recuperar-senha.tsx` com `useURL()` de `expo-linking`, chamando `setSession` como acima.
+**Recuperação de senha** — no site, o link do e-mail volta para a página e o evento `PASSWORD_RECOVERY` mostra o formulário. No mobile, o link do e-mail abre o app: `resetPasswordForEmail(email, { redirectTo: Linking.createURL('/nova-senha') })`. O `AuthProvider` observa `Linking.useURL()`, chama `restaurarSessaoDeLink(url)` e, se a URL trazia `type=recovery`, faz `router.replace('/nova-senha')`. Essa tela fica no grupo **protegido** (o link já criou uma sessão) — por isso ela não pode estar em `(auth)`, que some assim que há usuário.
 
 ### Presentation
 
@@ -567,7 +572,7 @@ Sem sessão, qualquer rota fora de `(auth)` redireciona para o login; com sessã
 
 Consequências nos passos seguintes: some toda lógica condicional "se logado" que existe no site (sidebar, histórico da triagem, pré-prontuário) — `useAuth().usuario` nunca é `null` dentro de `(tabs)`.
 
-Telas: `login.tsx`, `cadastro.tsx`, `recuperar-senha.tsx` — formulários com `react-hook-form` + schema `zod`, `PasswordInput` com ícone de olho (substitui `shared/toggle_senha.js`).
+Telas: `(auth)/login.tsx`, `(auth)/cadastro.tsx`, `(auth)/recuperar-senha.tsx`, `nova-senha.tsx` — finas: cada uma monta um formulário de `components/features/auth/` e liga às mutations de `hooks/useAuthActions.ts` (`signIn`, `signUp`, `signInWithGoogle`, `signOut`, `recuperarSenha`, `atualizarSenha`). Os formulários usam `react-hook-form` + os schemas `zod` de `domain/usecases/auth/schemas.ts`; `PasswordInput` com ícone de olho substitui `shared/toggle_senha.js`. Não há `router.push` no sucesso do login: o `Stack.Protected` troca o grupo sozinho quando o `AuthProvider` recebe `SIGNED_IN`.
 
 **Pronto quando:** abrir o app sem sessão cai no login; cria conta, loga, vê o e-mail na aba Perfil; desloga e volta ao login; loga com Google, recupera senha pelo e-mail abrindo o app. Fechar e reabrir o app mantém a sessão.
 

@@ -1,16 +1,22 @@
-import { StyleSheet, Text } from 'react-native';
-import { Screen } from '@presentation/components/ui';
-import { colors, fonts, fontSizes } from '@presentation/theme';
+import { useRouter } from 'expo-router';
+import { Screen, Title } from '@presentation/components/ui';
+import { RecuperarSenhaForm } from '@presentation/components/features/auth/RecuperarSenhaForm';
+import { useAuthActions } from '@presentation/hooks/useAuthActions';
 
-// Placeholder — implementar no passo 6 do guia (docs/guia-construcao-mobile.md).
 export default function RecuperarSenhaScreen() {
+  const router = useRouter();
+  const { recuperarSenha } = useAuthActions();
+
   return (
     <Screen>
-      <Text style={styles.title}>Recuperar senha</Text>
+      <Title>Recuperar senha</Title>
+      <RecuperarSenhaForm
+        onSubmit={(input) => recuperarSenha.mutate(input)}
+        onVoltar={() => router.replace('/login')}
+        carregando={recuperarSenha.isPending}
+        enviado={recuperarSenha.isSuccess}
+        erro={recuperarSenha.error?.message}
+      />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  title: { fontFamily: fonts.bold, fontSize: fontSizes.xl, color: colors.greenDark },
-});
