@@ -284,7 +284,9 @@ export const PRIMEIROS_SOCORROS: TopicoSocorro[] = [
         ]
       }
     ],
-    video: "JttAYDeuSyg"
+    // O vídeo do site (JttAYDeuSyg) foi removido do YouTube: o oEmbed responde 404
+    // e o player mostra "configuration error". Sem vídeo até haver um link novo.
+    video: null
   },
   {
     id: "fratura",

@@ -819,7 +819,11 @@ Resultado: **9 tópicos** de primeiros socorros (cada um com seu vídeo), **10 d
 ### Telas
 
 - **Primeiros socorros:** acordeão por tópico (`LayoutAnimation` para a expansão), ícone por assunto (`lungs`, `heart-pulse`, `fire`…), a dica rotativa do site (troca a cada 10 s, igual ao `setInterval` do original) e uma faixa de **telefones de emergência** que liga direto — SAMU 192, Bombeiros 193 e CIAT 0800 722 6001, que no site aparecem só no meio do texto.
-- **Vídeos:** cada um dos 9 tópicos tem um vídeo do YouTube, que no site é um `<iframe>` e aqui vira `react-native-webview` (já incluída no Expo Go, dispensa development build). O campo `video` guarda só o id; a URL de embed se monta na hora. A WebView só é criada **depois do toque no play** — nove WebViews vivas numa lista consumiriam memória à toa, já que o acordeão permite abrir vários tópicos. Se o embed falhar, o card oferece abrir no app do YouTube.
+- **Vídeos:** os tópicos têm vídeos do YouTube, que no site são `<iframe>` e aqui viram `react-native-webview` (já incluída no Expo Go, dispensa development build). O campo `video` guarda só o id; a URL de embed se monta na hora. A WebView só é criada **depois do toque no play** — nove WebViews vivas numa lista consumiriam memória à toa, já que o acordeão permite abrir vários tópicos.
+
+> **Duas armadilhas do embed.** Carregar a URL do embed direto em `source={{ uri }}` faz o YouTube responder *"Video player configuration error"*: a WebView não manda referer, e o player exige origem válida. A saída é servir o `<iframe>` como HTML com `baseUrl: 'https://www.youtube.com'`. E como esse erro é renderizado **dentro** do iframe, ele não dispara `onError` — por isso o card mantém sempre um link "Abrir no YouTube" visível, em vez de depender só do tratamento de falha.
+
+> **Um vídeo do site está morto:** `JttAYDeuSyg` (Transporte de vítimas) foi removido do YouTube — o oEmbed responde 404. Ficou como `video: null` até surgir um link novo; no site ele ainda aparece como player quebrado. Vale conferir os demais de tempos em tempos com `https://www.youtube.com/oembed?url=...&format=json`.
 - **Prevenção:** mesmo acordeão, com a imagem de capa de cada tópico. As imagens são links externos (Google/gstatic) herdados do site: se falharem, o `onError` esconde a capa e o texto continua.
 - Um aviso no rodapé deixa claro que o conteúdo é informativo e não substitui atendimento.
 
