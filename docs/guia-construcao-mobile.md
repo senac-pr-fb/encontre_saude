@@ -782,18 +782,47 @@ match /pharmacies/{doc} {
 
 **Objetivo:** substituir `primeiro_socorros_pages/` e `prevencao_pages/`, que não tocam o banco.
 
-- Extraia os textos de `frontend/pages/primeiro_socorros_pages/js/dicas.js` e `prevencao_pages/js/info_prevencao.js` para `src/data/static/primeirosSocorros.ts` e `prevencao.ts`, **tipados**:
+Não precisa de use case nem repositório: é conteúdo, não dado. Se um dia virar tabela, aí sim cria-se um `ConteudoRepository` e só a origem muda.
 
-```ts
-export interface Dica { id: string; titulo: string; icone: string; resumo: string; passos: string[] }
-export const primeirosSocorros: Dica[] = [ /* … */ ];
+### O problema: o texto está em HTML dentro do JS
+
+No site, cada tópico de primeiros socorros é uma string com `<p>`, `<b>` e traços fazendo papel de marcador:
+
+```js
+content: `
+  <b><p>1. Engasgamento leve </b>
+  <p><b>-</b> Pedir para a pessoa tossir 5 vezes com força;
+`
 ```
 
-- Telas com `FlatList` de cards expansíveis (accordion). Ícones via `FontAwesome6` de `@expo/vector-icons` — os nomes são os mesmos do Font Awesome usado no site (`kit-medical`, `shield-heart`…).
+React Native não renderiza HTML, e trazer uma biblioteca para isso seria pagar caro por um texto que já conhecemos. A conversão certa é para **dados estruturados**:
 
-Não precisa de use case nem repositório: é conteúdo, não dado. Se um dia virar tabela no Supabase, aí sim cria-se `ConteudoRepository`.
+```ts
+// src/domain/entities/Conteudo.ts
+export type BlocoConteudo =
+  | { tipo: 'subtitulo'; texto: string }
+  | { tipo: 'paragrafo'; texto: string; destaque?: boolean }
+  | { tipo: 'lista'; itens: string[] };
 
-**Pronto quando:** as duas abas mostram o mesmo conteúdo do site.
+export interface TopicoSocorro { id: string; titulo: string; blocos: BlocoConteudo[] }
+export interface TopicoPrevencao { id: string; titulo: string; imagem: string | null; paragrafos: string[] }
+```
+
+### A extração
+
+Converter 500 linhas à mão é lento e erra. Um script de uso único resolve: ele lê os arquivos do site, quebra o HTML em pedaços por `<p>`, classifica cada um (item de lista quando começa com `<b>-</b>`, subtítulo quando é `1. Texto`, parágrafo no resto), agrupa itens consecutivos numa `lista` e escreve os `.ts` de `src/data/static/`. Rode no scratchpad, confira o resultado e descarte o script.
+
+Resultado: **9 tópicos** de primeiros socorros, **10 dicas** rotativas, **6 tópicos** de prevenção.
+
+> Duas armadilhas na extração: a regex das dicas pega strings do resto do arquivo se não limitar ao trecho do array; e o texto de primeiros socorros cita "como mostra o passo 1 da imagem", mas essas imagens não existem no repositório — as frases ficaram como estão, já que descrevem o passo em palavras.
+
+### Telas
+
+- **Primeiros socorros:** acordeão por tópico (`LayoutAnimation` para a expansão), ícone por assunto (`lungs`, `heart-pulse`, `fire`…), a dica rotativa do site (troca a cada 10 s, igual ao `setInterval` do original) e uma faixa de **telefones de emergência** que liga direto — SAMU 192, Bombeiros 193 e CIAT 0800 722 6001, que no site aparecem só no meio do texto.
+- **Prevenção:** mesmo acordeão, com a imagem de capa de cada tópico. As imagens são links externos (Google/gstatic) herdados do site: se falharem, o `onError` esconde a capa e o texto continua.
+- Um aviso no rodapé deixa claro que o conteúdo é informativo e não substitui atendimento.
+
+**Pronto quando:** as duas abas mostram o mesmo conteúdo do site, os acordeões abrem e fecham, e os botões de emergência abrem o discador.
 
 ---
 
@@ -1085,7 +1114,7 @@ No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRe
 | `sintomas_ai/api.js` — `localStorage` de sessões | removido; histórico vem do banco |
 | `farmacias_pages/js/create_map.js` | `components/features/FarmaciasMap.tsx` (`react-native-maps`) |
 | `farmacias_pages/js/create_bairros.js` | `bairrosDe()` derivado da lista + `BairroPicker` |
-| `primeiro_socorros_pages/js/dicas.js` | `data/static/primeirosSocorros.ts` |
+| `primeiro_socorros_pages/js/dicas.js` + `init_primeiros_socorros.js` (HTML em string) | `data/static/primeirosSocorros.ts` — blocos tipados, renderizados por `components/features/conteudo/` |
 | `prevencao_pages/js/info_prevencao.js` | `data/static/prevencao.ts` |
 | `pre_prontuario_pages/pre_prontuario.js` | `app/pre-prontuario.tsx` + `PreProntuarioForm` |
 | `window.print()` | `expo-sharing` |
