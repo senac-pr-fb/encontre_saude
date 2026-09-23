@@ -1,0 +1,17 @@
+{
+  "name": "encontre-saude-services",
+  "version": "1.0.0",
+  "description": "Backend Supabase do Encontre Saúde: Edge Functions e migrations.",
+  "scripts": {
+    "serve": "supabase functions serve triagem --env-file .env.local",
+    "deploy": "supabase functions deploy triagem",
+    "secrets": "supabase secrets list",
+    "logs": "supabase functions logs triagem"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "supabase": "^2.117.0"
+  },
+  "private": true
+}
