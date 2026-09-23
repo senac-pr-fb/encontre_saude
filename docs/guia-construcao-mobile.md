@@ -833,14 +833,45 @@ Resultado: **9 tópicos** de primeiros socorros (cada um com seu vídeo), **10 d
 
 ## 10. Pré-prontuário
 
-**Objetivo:** substituir o formulário multi-step (4 etapas) de `pre_prontuario.js`.
+**Objetivo:** substituir o formulário de 4 etapas de `pre_prontuario.js` (683 linhas, o maior arquivo do site).
 
-- Reaproveita `usePerfil()` para pré-preencher (sexo, peso, altura, CPF, nascimento, telefone) e `useAuth()` para o nome (`usuario.nome`).
-- Estado do passo atual em `useState`; um único `react-hook-form` cobrindo as 4 etapas, com `trigger()` validando só os campos da etapa antes de avançar.
-- Rota `app/pre-prontuario.tsx` fora das tabs, apresentada como `presentation: 'modal'` no Stack.
-- Ao concluir, gera a visualização do prontuário (a mesma que o site imprime) e oferece compartilhar via `expo-sharing` — substitui o `window.print()`.
+### As etapas
 
-**Pronto quando:** o fluxo de 4 etapas navega, valida, pré-preenche do perfil e gera o resumo final.
+| Etapa | Campos | Validação (a mesma do site) |
+|---|---|---|
+| 1. Dados pessoais | nome, nascimento, CPF, sexo, telefone | nome ≥ 3, CPF com 11 dígitos, telefone ≥ 10 dígitos, sexo obrigatório |
+| 2. Sintomas | queixa principal, há quanto tempo, 12 sintomas | queixa ≥ 10 caracteres |
+| 3. Histórico clínico | alergias, medicamentos, doenças, histórico familiar + 6 sinais vitais | limites iguais aos do perfil |
+| 4. Revisão | resumo do que será enviado | — |
+
+Um único `react-hook-form` cobre as quatro; `trigger(CAMPOS_POR_ETAPA[n])` valida só os campos da etapa antes de avançar. Os 12 sintomas são a lista fixa que casa com as colunas de `sintomas_atendimento`.
+
+> A data de nascimento ganhou validação real: o site só verifica se o campo está preenchido, aceitando `31/02/2001` ou uma data no futuro.
+
+### As três automações — todas mantidas
+
+1. **Pré-preenchimento** pela ficha de saúde (`usePerfil`) e pelo nome da conta (`useAuth`).
+2. **Rascunho automático:** o site grava no `localStorage` a cada tecla e restaura ao voltar; no app, AsyncStorage. Num formulário de 4 etapas no celular — onde o app pode ir para segundo plano a qualquer momento — isso deixa de ser conveniência e vira necessidade.
+3. **Ponte triagem → prontuário:** a última triagem da IA fica guardada por 20 minutos e preenche a queixa principal com relato, nível e recomendação. É a melhor ideia do site e passa despercebida. Quem escreve é o passo 11 (`triagemLocal.registrar`); o prontuário só lê.
+
+Precedência: **rascunho > perfil**, e a triagem só entra se a queixa ainda estiver vazia. Quem digitou algo e saiu do app não quer o próprio texto substituído pelo cadastro.
+
+### Ao concluir
+
+```
+salvarConsulta  →  historico_ia + sintomas_atendimento (dados_clinicos em jsonb)
+sincronizar     →  dados_saude, preservando o que o formulário não cobre
+gerar PDF       →  expo-print
+compartilhar    →  expo-sharing
+```
+
+> **O site apaga dados aqui também:** ao gerar o PDF ele chama `profileService.saveProfile` com apenas os campos do formulário, zerando o resto da ficha. O `SalvarConsulta` carrega o perfil atual e sobrescreve só o que foi informado.
+
+**PDF: `expo-print` em vez de jsPDF.** O site desenha o documento coordenada a coordenada (~130 linhas de `doc.text(x, y)`, com controle manual de quebra de página). No app, o documento é HTML e o motor de impressão do sistema gera o A4: o layout vira CSS, a paginação é automática e mudar o visual não exige recalcular posições.
+
+**Envio: o menu nativo, não canais simulados.** A etapa 4 do site pede e-mail ou WhatsApp, valida o formato — e então apenas mostra um toast dizendo "envio simulado". Replicar isso no app criaria uma expectativa falsa. O `expo-sharing` abre o menu do sistema, que já lista e-mail, WhatsApp e salvar arquivo, e o envio acontece de verdade. Se um dia o envio automático for necessário, ele é uma Edge Function, não um formulário.
+
+**Pronto quando:** as 4 etapas navegam e validam, o rascunho sobrevive a fechar o app, o PDF abre no visualizador do sistema e a consulta aparece no histórico do Supabase.
 
 ---
 
@@ -1123,7 +1154,7 @@ No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRe
 | `prevencao_pages/js/info_prevencao.js` | `data/static/prevencao.ts` |
 | `<iframe>` do YouTube em `init_primeiros_socorros.js` | `components/features/conteudo/VideoYouTube.tsx` (`react-native-webview`) |
 | `pre_prontuario_pages/pre_prontuario.js` | `app/pre-prontuario.tsx` + `PreProntuarioForm` |
-| `window.print()` | `expo-sharing` |
+| `window.print()` / jsPDF | `expo-print` (HTML → PDF) + `expo-sharing` |
 | `window.location.href = …` | `router.push()` / `<Redirect>` |
 | `localStorage` | `AsyncStorage` (dados comuns) / `SecureStore` (sessão) |
 | Font Awesome CDN | `FontAwesome6` de `@expo/vector-icons` |
@@ -1144,5 +1175,6 @@ No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRe
 | `@expo/vector-icons` | Ícones (FontAwesome6) |
 | `@expo-google-fonts/outfit` | Fonte do site |
 | `expo-sharing` | Compartilhar pré-prontuário |
+| `expo-print` | PDF do pré-prontuário (substitui o jsPDF do site) |
 | `react-native-webview` | Vídeos do YouTube nos primeiros socorros |
 | `jest` + `@testing-library/react-native` | Testes (`domain/` testa sem mocks) |

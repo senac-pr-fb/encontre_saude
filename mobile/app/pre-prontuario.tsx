@@ -1,16 +1,82 @@
-import { StyleSheet, Text } from 'react-native';
-import { Screen } from '@presentation/components/ui';
-import { colors, fonts, fontSizes } from '@presentation/theme';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { Body, Button, Card, Screen, Subtitle, SuccessMessage, Title } from '@presentation/components/ui';
+import { ProntuarioForm } from '@presentation/components/features/prontuario/ProntuarioForm';
+import { usePreProntuario } from '@presentation/hooks/usePreProntuario';
+import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 
-// Placeholder — implementar no passo 10 do guia (docs/guia-construcao-mobile.md).
 export default function PreProntuarioScreen() {
+  const router = useRouter();
+  const { iniciais, triagem, rascunhoRestaurado, salvarRascunho, concluir, compartilhar } = usePreProntuario();
+
+  if (!iniciais) {
+    return (
+      <Screen>
+        <ActivityIndicator color={colors.greenMedium} style={styles.centro} />
+      </Screen>
+    );
+  }
+
+  // Concluído: o PDF já existe e a consulta está no histórico.
+  if (concluir.isSuccess) {
+    return (
+      <Screen>
+        <Title>Pronto</Title>
+        <SuccessMessage message="Pré-prontuário gerado e salvo no seu histórico." />
+        <Card>
+          <Body>
+            Leve o documento à unidade de saúde. Você pode compartilhá-lo por e-mail ou WhatsApp, ou salvar o arquivo
+            no aparelho.
+          </Body>
+          <Button title="Compartilhar PDF" onPress={() => compartilhar(concluir.data.uri)} />
+          <Button title="Voltar ao início" variant="ghost" onPress={() => router.replace('/(tabs)')} />
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
-      <Text style={styles.title}>Pré-prontuário</Text>
+      <Title>Pré-prontuário</Title>
+      <Subtitle>Preencha antes de ir à unidade de saúde: o atendimento começa com tudo em mãos.</Subtitle>
+
+      {triagem ? (
+        <Aviso icone="robot" texto="Sua última triagem foi usada para preencher a queixa principal." />
+      ) : null}
+      {rascunhoRestaurado ? (
+        <Aviso icone="floppy-disk" texto="Recuperamos o que você havia preenchido antes." />
+      ) : null}
+
+      <ProntuarioForm
+        valoresIniciais={iniciais}
+        onRascunho={salvarRascunho}
+        onConcluir={(valores) => concluir.mutate(valores)}
+        gerando={concluir.isPending}
+        erro={concluir.error?.message}
+      />
     </Screen>
   );
 }
 
+function Aviso({ icone, texto }: { icone: string; texto: string }) {
+  return (
+    <View style={styles.aviso}>
+      <FontAwesome6 name={icone} size={13} color={colors.greenDark} />
+      <Body style={styles.avisoTexto}>{texto}</Body>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  title: { fontFamily: fonts.bold, fontSize: fontSizes.xl, color: colors.greenDark },
+  centro: { marginTop: spacing.xl },
+  aviso: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.greenAccent,
+    padding: spacing.sm,
+    borderRadius: 8,
+  },
+  avisoTexto: { flex: 1, fontFamily: fonts.regular, fontSize: fontSizes.xs, color: colors.greenDark },
 });
