@@ -49,9 +49,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "eas:env": "eas-cli env:push preview --path .env",
-    "build:preview": "eas-cli build -p android --profile preview",
-    "build:dev": "eas-cli build -p android --profile development"
+    "eas:env": "npx --yes eas-cli env:push preview --path .env",
+    "build:preview": "npx --yes eas-cli build -p android --profile preview",
+    "build:dev": "npx --yes eas-cli build -p android --profile development"
   },
   "private": true
 }
