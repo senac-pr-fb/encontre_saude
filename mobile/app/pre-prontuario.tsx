@@ -9,16 +9,17 @@ import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 
 export default function PreProntuarioScreen() {
   const router = useRouter();
-  const { iniciais, triagem, rascunhoRestaurado, salvarRascunho, concluir, compartilhar } = usePreProntuario();
+  const { iniciais, triagem, rascunhoRestaurado, salvarRascunho, concluir, compartilhar, imprimir } =
+    usePreProntuario();
   const [erroCompartilhar, setErroCompartilhar] = useState<string | null>(null);
 
   // Sem o catch, uma falha aqui viraria rejeição não capturada em vez de mensagem.
-  const compartilharPdf = async (uri: string) => {
+  const executar = async (acao: () => Promise<void>) => {
     setErroCompartilhar(null);
     try {
-      await compartilhar(uri);
+      await acao();
     } catch (e) {
-      setErroCompartilhar(e instanceof Error ? e.message : 'Não foi possível compartilhar o arquivo.');
+      setErroCompartilhar(e instanceof Error ? e.message : 'Não foi possível abrir o arquivo.');
     }
   };
 
@@ -42,7 +43,17 @@ export default function PreProntuarioScreen() {
             no aparelho.
           </Body>
           <ErrorMessage message={erroCompartilhar} />
-          <Button title="Compartilhar PDF" onPress={() => compartilharPdf(concluir.data.uri)} />
+          <Button
+            title="Compartilhar PDF"
+            onPress={() => executar(() => compartilhar(concluir.data.pdf.uri))}
+          />
+          {/* Alternativa que nao passa pelo sistema de arquivos: o dialogo de
+              impressao do sistema tambem salva em PDF. */}
+          <Button
+            title="Abrir para imprimir ou salvar"
+            variant="secondary"
+            onPress={() => executar(() => imprimir(concluir.data.prontuario))}
+          />
           <Button title="Voltar ao início" variant="ghost" onPress={() => router.replace('/(tabs)')} />
         </Card>
       </Screen>

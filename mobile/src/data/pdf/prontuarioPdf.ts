@@ -140,16 +140,30 @@ export async function gerarPdfProntuario(p: PreProntuario): Promise<PdfGerado> {
   const { uri } = await Print.printToFileAsync({ html: montarHtml(p), base64: false });
   const compartilhavel = await Sharing.isAvailableAsync();
 
-  const destino = `${LegacyFS.cacheDirectory}pre-prontuario-${new Date().toISOString().slice(0, 10)}.pdf`;
+  // documentDirectory, não cacheDirectory: é o diretório que o expo-sharing
+  // reconhece como legível ao checar as permissões do caminho no Android.
+  const destino = `${LegacyFS.documentDirectory}pre-prontuario-${new Date().toISOString().slice(0, 10)}.pdf`;
 
   try {
     await LegacyFS.deleteAsync(destino, { idempotent: true });
     await LegacyFS.copyAsync({ from: uri, to: destino });
+    if (__DEV__) console.log('[pdf] impresso em', uri, '→ copiado para', destino);
     return { uri: destino, compartilhavel };
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.log('[pdf] cópia falhou, usando o original:', uri, e);
     // Sem a cópia o nome fica feio, mas o documento continua utilizável.
     return { uri, compartilhavel };
   }
+}
+
+/**
+ * Caminho alternativo: abre o diálogo de impressão do sistema, que oferece
+ * "Salvar como PDF" no Android e a folha de compartilhamento no iOS. Não passa
+ * pelo sistema de arquivos, então funciona mesmo quando o compartilhamento
+ * direto esbarra em permissão de leitura.
+ */
+export async function imprimirProntuario(p: PreProntuario): Promise<void> {
+  await Print.printAsync({ html: montarHtml(p) });
 }
 
 /**

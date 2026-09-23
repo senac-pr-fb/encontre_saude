@@ -4,7 +4,7 @@ import { container } from '@core/di/container';
 import { unwrap } from '@core/utils/result';
 import type { PreProntuario, TriagemRecente } from '@domain/entities/PreProntuario';
 import { FORMULARIO_VAZIO, type ProntuarioFormInput, type ProntuarioFormOutput } from '@domain/usecases/prontuario';
-import { compartilharPdf, gerarPdfProntuario } from '@data/pdf/prontuarioPdf';
+import { compartilharPdf, gerarPdfProntuario, imprimirProntuario } from '@data/pdf/prontuarioPdf';
 import { useAuth } from '@presentation/providers/AuthProvider';
 import { usePerfil } from './usePerfil';
 import { dataParaBR } from '@core/utils/formato';
@@ -85,7 +85,8 @@ export function usePreProntuario() {
       await container.prontuario.salvar.execute(usuario!.id, prontuario).then(unwrap);
       const pdf = await gerarPdfProntuario(prontuario);
       await container.prontuario.rascunho.limpar();
-      return pdf;
+      // O prontuario volta junto para permitir reimprimir sem refazer o formulario.
+      return { pdf, prontuario };
     },
   });
 
@@ -96,5 +97,6 @@ export function usePreProntuario() {
     salvarRascunho,
     concluir,
     compartilhar: compartilharPdf,
+    imprimir: imprimirProntuario,
   };
 }
