@@ -83,6 +83,14 @@ export function usePreProntuario() {
     mutationFn: async (valores: ProntuarioFormOutput) => {
       const prontuario = valores as PreProntuario;
       await container.prontuario.salvar.execute(usuario!.id, prontuario).then(unwrap);
+
+      // O nome não tem coluna em `dados_saude`: ele pertence à conta. Quem se
+      // cadastrou por e-mail não tem nome nenhum (só o login Google traz um),
+      // então guardamos o que foi digitado para não perguntar de novo.
+      if (prontuario.nome && prontuario.nome !== usuario!.nome) {
+        await container.auth.repo.atualizarNome(prontuario.nome);
+      }
+
       const pdf = await gerarPdfProntuario(prontuario);
       await container.prontuario.rascunho.limpar();
       // O prontuario volta junto para permitir reimprimir sem refazer o formulario.

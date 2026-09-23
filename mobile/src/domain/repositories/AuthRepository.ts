@@ -22,6 +22,8 @@ export interface AuthRepository {
   onAuthStateChange(cb: (usuario: Usuario | null, evento: EventoAuth) => void): () => void;
   enviarRecuperacaoSenha(email: string): Promise<Result<void, AuthError>>;
   atualizarSenha(novaSenha: string): Promise<Result<void, AuthError>>;
+  /** Guarda o nome na conta (user_metadata), para o app nao pedir de novo. */
+  atualizarNome(nome: string): Promise<Result<void, AuthError>>;
   /** Renovação do token só com o app em primeiro plano (o Supabase recomenda para RN). */
   iniciarAutoRefresh(): void;
   pararAutoRefresh(): void;

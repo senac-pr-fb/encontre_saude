@@ -848,11 +848,12 @@ Um único `react-hook-form` cobre as quatro; `trigger(CAMPOS_POR_ETAPA[n])` vali
 
 > A data de nascimento ganhou validação real: o site só verifica se o campo está preenchido, aceitando `31/02/2001` ou uma data no futuro.
 
-### As três automações — todas mantidas
+### As automações do formulário
 
 1. **Pré-preenchimento** pela ficha de saúde (`usePerfil`) e pelo nome da conta (`useAuth`).
-2. **Rascunho automático:** o site grava no `localStorage` a cada tecla e restaura ao voltar; no app, AsyncStorage. Num formulário de 4 etapas no celular — onde o app pode ir para segundo plano a qualquer momento — isso deixa de ser conveniência e vira necessidade.
-3. **Ponte triagem → prontuário:** a última triagem da IA fica guardada por 20 minutos e preenche a queixa principal com relato, nível e recomendação. É a melhor ideia do site e passa despercebida. Quem escreve é o passo 11 (`triagemLocal.registrar`); o prontuário só lê.
+2. **Nome do paciente:** não existe coluna para ele em `dados_saude` — ele pertence à conta. Quem se cadastrou por e-mail não tem nome (só o login Google traz um), então o app guarda em `user_metadata` o nome digitado no prontuário, e nas próximas vezes ele já vem preenchido. O site pede o nome toda vez.
+3. **Rascunho automático:** o site grava no `localStorage` a cada tecla e restaura ao voltar; no app, AsyncStorage. Num formulário de 4 etapas no celular — onde o app pode ir para segundo plano a qualquer momento — isso deixa de ser conveniência e vira necessidade.
+4. **Ponte triagem → prontuário:** a última triagem da IA fica guardada por 20 minutos e preenche a queixa principal com relato, nível e recomendação. É a melhor ideia do site e passa despercebida. Quem escreve é o passo 11 (`triagemLocal.registrar`); o prontuário só lê.
 
 Precedência: **rascunho > perfil**, e a triagem só entra se a queixa ainda estiver vazia. Quem digitou algo e saiu do app não quer o próprio texto substituído pelo cadastro.
 
@@ -876,7 +877,9 @@ compartilhar    →  expo-sharing
 | **Salvar ou imprimir PDF** | `Print.printAsync` abre o diálogo do sistema, com "Salvar como PDF" no Android e a folha de compartilhamento no iOS | Expo Go **e** build |
 | **Compartilhar arquivo** | `Sharing.shareAsync` abre o menu nativo (e-mail, WhatsApp, salvar) | Só em build |
 
-> **Por que o compartilhamento falha no Expo Go.** O `SharingModule` do Android checa se o caminho está entre os que o app pode ler (`isAllowedToRead`) e a sandbox do Expo Go reprova tanto o `cacheDirectory` quanto o `documentDirectory` — o erro é `Not allowed to read file under given URL`. Por isso a impressão é a ação principal: ela não toca o sistema de arquivos, o HTML vai direto para o motor de impressão. Rodando no Expo Go, a tela explica isso em uma linha (`ehExpoGo`, de `core/config/ambiente.ts`).
+> **O arquivo impresso é ilegível no Expo Go.** O `printToFileAsync` grava em `cache/Print/`, **fora** da sandbox do app quando se roda no Expo Go — tanto a API de arquivos quanto o compartilhamento recusam lê-lo (`isn.t readable`, `Not allowed to read file under given URL`). A saída é não ler a origem: pedir `base64: true` e gravar o PDF no `documentDirectory` com `writeAsStringAsync`. Num build isso não seria necessário, mas não custa nada e dá ao arquivo um nome decente — que é o que o destinatário vê.
+
+> A impressão continua sendo a ação principal por não tocar o sistema de arquivos: o HTML vai direto para o motor de impressão. Rodando no Expo Go, a tela explica em uma linha por que o compartilhamento pode falhar (`ehExpoGo`, de `core/config/ambiente.ts`).
 
 > Se um dia o envio automático por e-mail for necessário, ele é uma Edge Function com o PDF anexado — não um campo de formulário no app.
 

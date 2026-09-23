@@ -91,6 +91,12 @@ export class SupabaseAuthRepository implements AuthRepository {
     return ok(undefined);
   }
 
+  async atualizarNome(nome: string): Promise<Result<void, AuthError>> {
+    const { error } = await this.supabase.auth.updateUser({ data: { full_name: nome } });
+    if (error) return err(toAuthError(error));
+    return ok(undefined);
+  }
+
   iniciarAutoRefresh() {
     this.supabase.auth.startAutoRefresh();
   }

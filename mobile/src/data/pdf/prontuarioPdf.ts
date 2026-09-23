@@ -137,21 +137,24 @@ export interface PdfGerado {
  * ("Missing 'READ' permission for accessing the file").
  */
 export async function gerarPdfProntuario(p: PreProntuario): Promise<PdfGerado> {
-  const { uri } = await Print.printToFileAsync({ html: montarHtml(p), base64: false });
+  // base64 em vez do caminho: no Expo Go o arquivo impresso vai para
+  // `cache/Print/`, fora da sandbox do app, e nem a API de arquivos nem o
+  // compartilhamento conseguem lê-lo ("isn't readable"). Recebendo o conteúdo
+  // direto, escrevemos o PDF no diretório do app sem precisar ler a origem.
+  const { uri, base64 } = await Print.printToFileAsync({ html: montarHtml(p), base64: true });
   const compartilhavel = await Sharing.isAvailableAsync();
 
-  // documentDirectory, não cacheDirectory: é o diretório que o expo-sharing
-  // reconhece como legível ao checar as permissões do caminho no Android.
+  // documentDirectory, não cacheDirectory: é o que o expo-sharing reconhece
+  // como legível ao checar as permissões do caminho no Android.
   const destino = `${LegacyFS.documentDirectory}pre-prontuario-${new Date().toISOString().slice(0, 10)}.pdf`;
 
   try {
-    await LegacyFS.deleteAsync(destino, { idempotent: true });
-    await LegacyFS.copyAsync({ from: uri, to: destino });
-    if (__DEV__) console.log('[pdf] impresso em', uri, '→ copiado para', destino);
+    if (!base64) throw new Error('A impressão não devolveu o conteúdo do PDF.');
+    await LegacyFS.writeAsStringAsync(destino, base64, { encoding: LegacyFS.EncodingType.Base64 });
+    if (__DEV__) console.log('[pdf] gravado em', destino);
     return { uri: destino, compartilhavel };
   } catch (e) {
-    if (__DEV__) console.log('[pdf] cópia falhou, usando o original:', uri, e);
-    // Sem a cópia o nome fica feio, mas o documento continua utilizável.
+    if (__DEV__) console.log('[pdf] gravação falhou, usando o original:', uri, e);
     return { uri, compartilhavel };
   }
 }
