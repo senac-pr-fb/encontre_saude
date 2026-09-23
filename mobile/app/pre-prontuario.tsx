@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { Body, Button, Card, Screen, Subtitle, SuccessMessage, Title } from '@presentation/components/ui';
+import { Body, Button, Card, ErrorMessage, Screen, Subtitle, SuccessMessage, Title } from '@presentation/components/ui';
 import { ProntuarioForm } from '@presentation/components/features/prontuario/ProntuarioForm';
 import { usePreProntuario } from '@presentation/hooks/usePreProntuario';
 import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
@@ -9,6 +10,17 @@ import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 export default function PreProntuarioScreen() {
   const router = useRouter();
   const { iniciais, triagem, rascunhoRestaurado, salvarRascunho, concluir, compartilhar } = usePreProntuario();
+  const [erroCompartilhar, setErroCompartilhar] = useState<string | null>(null);
+
+  // Sem o catch, uma falha aqui viraria rejeição não capturada em vez de mensagem.
+  const compartilharPdf = async (uri: string) => {
+    setErroCompartilhar(null);
+    try {
+      await compartilhar(uri);
+    } catch (e) {
+      setErroCompartilhar(e instanceof Error ? e.message : 'Não foi possível compartilhar o arquivo.');
+    }
+  };
 
   if (!iniciais) {
     return (
@@ -29,7 +41,8 @@ export default function PreProntuarioScreen() {
             Leve o documento à unidade de saúde. Você pode compartilhá-lo por e-mail ou WhatsApp, ou salvar o arquivo
             no aparelho.
           </Body>
-          <Button title="Compartilhar PDF" onPress={() => compartilhar(concluir.data.uri)} />
+          <ErrorMessage message={erroCompartilhar} />
+          <Button title="Compartilhar PDF" onPress={() => compartilharPdf(concluir.data.uri)} />
           <Button title="Voltar ao início" variant="ghost" onPress={() => router.replace('/(tabs)')} />
         </Card>
       </Screen>

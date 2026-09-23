@@ -1,6 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { File, Paths } from 'expo-file-system';
+import * as LegacyFS from 'expo-file-system/legacy';
 import type { PreProntuario } from '@domain/entities/PreProntuario';
 import { rotuloDoSintoma } from '@domain/entities/PreProntuario';
 import { dataParaBR, mascararCPF, mascararTelefone } from '@core/utils/formato';
@@ -127,21 +127,29 @@ export interface PdfGerado {
 /**
  * Gera o arquivo e devolve o caminho local.
  *
- * O `printToFileAsync` escreve num diretório interno do módulo de impressão, de
- * onde o compartilhamento não tem permissão de leitura ("Not allowed to read
- * file under given URL"). Por isso o PDF é copiado para o cache do app antes de
- * ser oferecido — o que também dá ao arquivo um nome decente, já que é esse
- * nome que o destinatário vê.
+ * O `printToFileAsync` escreve num diretório do módulo de impressão com um nome
+ * aleatório, de onde o compartilhamento não consegue ler ("Not allowed to read
+ * file under given URL"). Copiar para o cache do app resolve e ainda dá ao
+ * arquivo um nome decente — é esse nome que o destinatário vê.
+ *
+ * A cópia usa a API legada de propósito: a nova (`File`/`Paths`, SDK 54+) aplica
+ * um modelo de permissões que recusa ler o arquivo do módulo de impressão
+ * ("Missing 'READ' permission for accessing the file").
  */
 export async function gerarPdfProntuario(p: PreProntuario): Promise<PdfGerado> {
   const { uri } = await Print.printToFileAsync({ html: montarHtml(p), base64: false });
+  const compartilhavel = await Sharing.isAvailableAsync();
 
-  const carimbo = new Date().toISOString().slice(0, 10);
-  const destino = new File(Paths.cache, `pre-prontuario-${carimbo}.pdf`);
-  if (destino.exists) destino.delete();
-  await new File(uri).copy(destino);
+  const destino = `${LegacyFS.cacheDirectory}pre-prontuario-${new Date().toISOString().slice(0, 10)}.pdf`;
 
-  return { uri: destino.uri, compartilhavel: await Sharing.isAvailableAsync() };
+  try {
+    await LegacyFS.deleteAsync(destino, { idempotent: true });
+    await LegacyFS.copyAsync({ from: uri, to: destino });
+    return { uri: destino, compartilhavel };
+  } catch {
+    // Sem a cópia o nome fica feio, mas o documento continua utilizável.
+    return { uri, compartilhavel };
+  }
 }
 
 /**
