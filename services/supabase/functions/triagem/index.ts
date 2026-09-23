@@ -1,76 +1,64 @@
 /**
  * Triagem de sintomas com IA.
  *
- * Existe para que a chave do Gemini nunca entre num cliente. O app (e, quando
+ * Existe para que a chave do modelo nunca entre num cliente. O app (e, quando
  * for atualizado, o site) manda só o relato do usuário; a chave, o prompt e a
  * gravação do histórico ficam aqui.
  *
  * Deploy:
- *   supabase secrets set GEMINI_API_KEY=...
+ *   supabase secrets set ANTHROPIC_API_KEY=...
  *   supabase functions deploy triagem
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import Anthropic from 'npm:@anthropic-ai/sdk@^0.128.0';
+import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@^0.128.0/helpers/zod';
+import { z } from 'npm:zod@^4';
 
-const MODELO = 'gemini-2.5-flash';
+const MODELO = 'claude-opus-5';
 const LIMITE_RELATO = 2000;
 
-// Copiado de frontend/pages/home_page/js/sintomas_ai/api.js — os nomes dos
-// sintomas são exatamente as colunas de `sintomas_atendimento`.
-const PROMPT_MESTRE = `
-Você é um assistente de IA especializado em triagem de sintomas de saúde. Sua tarefa é analisar o relato do usuário e fornecer uma orientação estruturada.
+/**
+ * O formato da resposta é imposto pelo schema, não pedido no prompt: o modelo
+ * não consegue devolver outra coisa. Isso dispensa o que o site precisa fazer
+ * na mão — limpar cercas ```json, tratar campo ausente, validar o nível.
+ *
+ * As chaves de `sintomas` são exatamente as colunas de `sintomas_atendimento`.
+ */
+const TriagemSchema = z.object({
+  nivel: z.number().int().min(1).max(5).describe('1 Não Urgente, 2 Pouco Urgente, 3 Urgente, 4 Muito Urgente, 5 Emergência'),
+  resumo: z.string().describe('Uma a duas frases sobre o que o relato indica, em linguagem simples'),
+  recomendacao: z.string().describe('O que a pessoa deve fazer agora, de forma direta'),
+  primeiros_socorros: z.string().describe('Cuidados imediatos possíveis em casa; string vazia se não houver'),
+  unidade_recomendada: z.string().describe('Onde procurar atendimento: autocuidado, farmácia, UBS, UPA ou hospital'),
+  sintomas: z.object({
+    febre: z.boolean(),
+    dor_de_cabeca: z.boolean(),
+    tosse: z.boolean(),
+    falta_de_ar: z.boolean(),
+    dor_no_peito: z.boolean(),
+    nausea_vomito: z.boolean(),
+    diarreia: z.boolean(),
+    dor_abdominal: z.boolean(),
+    dor_nas_costas: z.boolean(),
+    tontura: z.boolean(),
+    fraqueza: z.boolean(),
+    coriza: z.boolean(),
+  }),
+});
 
-**Instruções de Resposta:**
-Você DEVE retornar sua resposta APENAS no formato JSON, sem crase ou markdown. O JSON deve conter os seguintes campos:
+const INSTRUCOES = `Você é um assistente de triagem de sintomas de um aplicativo de saúde pública de Francisco Beltrão, no Paraná.
 
-{
-  "nivel": (número de 1 a 5),
-  "resumo": "...",
-  "recomendacao": "...",
-  "primeiros_socorros": "...",
-  "unidade_recomendada": "...",
-  "sintomas": {
-    "febre": boolean,
-    "dor_de_cabeca": boolean,
-    "tosse": boolean,
-    "falta_de_ar": boolean,
-    "dor_no_peito": boolean,
-    "nausea_vomito": boolean,
-    "diarreia": boolean,
-    "dor_abdominal": boolean,
-    "dor_nas_costas": boolean,
-    "tontura": boolean,
-    "fraqueza": boolean,
-    "coriza": boolean
-  }
-}
+Analise o relato e classifique a urgência nesta escala:
+1 - Não Urgente: autocuidado em casa
+2 - Pouco Urgente: observação, orientação de farmácia
+3 - Urgente: UBS ou posto de saúde
+4 - Muito Urgente: UPA
+5 - Emergência: hospital ou SAMU 192
 
-**Escala de Classificação:**
-1 - Não Urgente (Autocuidado)
-2 - Pouco Urgente (Observação/Farmácia)
-3 - Urgente (UBS/Posto de Saúde)
-4 - Muito Urgente (UPA)
-5 - Emergência (Hospital/SAMU 192)
+Marque em "sintomas" apenas o que o relato menciona ou implica claramente — não presuma.
 
-**Texto do Usuário:**
-[AQUI_VOCE_INSERE_O_TEXTO_DO_USUARIO]
-`;
+Escreva para quem não tem formação em saúde: frases curtas, sem jargão. Não invente diagnóstico: o objetivo é orientar para onde ir, não dizer o que a pessoa tem. Na dúvida entre dois níveis, escolha o mais alto — errar para o lado cauteloso é preferível.`;
 
-const COLUNAS_SINTOMAS = [
-  'febre',
-  'dor_de_cabeca',
-  'tosse',
-  'falta_de_ar',
-  'dor_no_peito',
-  'nausea_vomito',
-  'diarreia',
-  'dor_abdominal',
-  'dor_nas_costas',
-  'tontura',
-  'fraqueza',
-  'coriza',
-] as const;
-
-// O site roda em outro domínio; sem isto o navegador bloqueia a chamada.
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -87,8 +75,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ erro: 'Método não permitido' }, 405);
 
-  // 1. Só usuário autenticado. O cliente carrega o JWT de quem está logado,
-  //    então as escritas abaixo continuam sujeitas às policies de RLS.
+  // 1. Só usuário autenticado. O cliente carrega o JWT de quem chamou, então as
+  //    gravações abaixo continuam sujeitas às policies de RLS.
   const autorizacao = req.headers.get('Authorization');
   if (!autorizacao) return json({ erro: 'Não autenticado' }, 401);
 
@@ -116,55 +104,48 @@ Deno.serve(async (req) => {
     return json({ erro: `O relato deve ter no máximo ${LIMITE_RELATO} caracteres` }, 400);
   }
 
-  // 3. Gemini, com a chave que só existe aqui
-  const chave = Deno.env.get('GEMINI_API_KEY');
+  // 3. Claude, com a chave que só existe aqui
+  const chave = Deno.env.get('ANTHROPIC_API_KEY');
   if (!chave) return json({ erro: 'Serviço de triagem não configurado' }, 500);
 
-  const resposta = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${chave}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: PROMPT_MESTRE.replace('[AQUI_VOCE_INSERE_O_TEXTO_DO_USUARIO]', descricao) }] }],
-        // Evita as cercas ```json que o site precisava limpar na mão
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
-      }),
-    },
-  );
+  const anthropic = new Anthropic({ apiKey: chave });
 
-  if (!resposta.ok) {
-    console.error('[triagem] Gemini respondeu', resposta.status, await resposta.text());
+  let triagem: z.infer<typeof TriagemSchema>;
+  try {
+    const resposta = await anthropic.messages.parse({
+      model: MODELO,
+      // A saída é curta e de formato fixo; não há por que reservar mais.
+      max_tokens: 2000,
+      system: INSTRUCOES,
+      // Classificação sobre um texto curto não exige raciocínio profundo.
+      output_config: { effort: 'low', format: zodOutputFormat(TriagemSchema) },
+      messages: [{ role: 'user', content: `Relato do paciente:\n\n${descricao}` }],
+    });
+
+    // O modelo pode recusar por segurança; sem isto, leríamos conteúdo vazio.
+    if (resposta.stop_reason === 'refusal') {
+      console.error('[triagem] recusa:', resposta.stop_details);
+      return json({ erro: 'Não foi possível analisar este relato. Procure atendimento se os sintomas persistirem.' }, 422);
+    }
+    if (!resposta.parsed_output) {
+      console.error('[triagem] resposta sem saída estruturada:', resposta.stop_reason);
+      return json({ erro: 'Resposta da IA em formato inesperado' }, 502);
+    }
+
+    triagem = resposta.parsed_output;
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError) {
+      console.error('[triagem] chave inválida');
+      return json({ erro: 'Serviço de triagem não configurado' }, 500);
+    }
+    if (e instanceof Anthropic.RateLimitError) {
+      return json({ erro: 'Muitas consultas agora. Tente de novo em instantes' }, 429);
+    }
+    console.error('[triagem] falha na chamada:', e);
     return json({ erro: 'Não foi possível analisar os sintomas agora' }, 502);
   }
 
-  const corpo = await resposta.json();
-  const texto: string = corpo?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-  let resultado: Record<string, unknown>;
-  try {
-    resultado = JSON.parse(texto.replace(/```json|```/g, '').trim());
-  } catch {
-    console.error('[triagem] resposta não era JSON:', texto.slice(0, 500));
-    return json({ erro: 'Resposta da IA em formato inesperado' }, 502);
-  }
-
-  // 4. Normaliza antes de gravar: o modelo pode devolver nível fora da faixa
-  //    ou omitir sintomas.
-  const nivel = Math.min(5, Math.max(1, Number(resultado.nivel) || 1));
-  const sintomasBrutos = (resultado.sintomas ?? {}) as Record<string, unknown>;
-  const sintomas = Object.fromEntries(COLUNAS_SINTOMAS.map((c) => [c, Boolean(sintomasBrutos[c])]));
-
-  const triagem = {
-    nivel,
-    resumo: String(resultado.resumo ?? ''),
-    recomendacao: String(resultado.recomendacao ?? ''),
-    primeiros_socorros: String(resultado.primeiros_socorros ?? ''),
-    unidade_recomendada: String(resultado.unidade_recomendada ?? ''),
-    sintomas,
-  };
-
-  // 5. Histórico. Falhar aqui não invalida a orientação já produzida.
+  // 4. Histórico. Falhar aqui não invalida a orientação já produzida.
   const { data: historico, error: erroHistorico } = await supabase
     .from('historico_ia')
     .insert({
@@ -180,7 +161,7 @@ Deno.serve(async (req) => {
   } else {
     const { error: erroSintomas } = await supabase
       .from('sintomas_atendimento')
-      .insert({ historico_id: historico.id, ...sintomas });
+      .insert({ historico_id: historico.id, ...triagem.sintomas });
     if (erroSintomas) console.error('[triagem] sintomas não salvos:', erroSintomas.message);
   }
 

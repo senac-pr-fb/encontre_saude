@@ -7,7 +7,7 @@ services/
 └── supabase/
     ├── config.toml            # gerado por `supabase init`
     ├── functions/             # Edge Functions (Deno/TypeScript)
-    │   └── triagem/           # chama o Gemini com a chave do servidor (ver guia, seção final)
+    │   └── triagem/           # chama o Claude com a chave do servidor (ver guia, seção final)
     └── migrations/            # SQL versionado: tabelas, RLS, policies
 ```
 
@@ -24,14 +24,14 @@ O RLS já está habilitado nas três tabelas, com policies por `user_id`. Confir
 
 ## Edge Function `triagem`
 
-Analisa o relato de sintomas com o Gemini e grava a consulta no histórico.
+Analisa o relato de sintomas com o Claude e grava a consulta no histórico.
 
-**Existe para que a chave do Gemini nunca entre num cliente.** O app manda só o texto; a chave, o prompt mestre e a gravação ficam no servidor.
+**Existe para que a chave da Anthropic nunca entre num cliente.** O app manda só o texto; a chave, o prompt mestre e a gravação ficam no servidor.
 
 ```
 app / site  ──POST { descricao } + JWT──▶  triagem
                                             ├── valida o usuário (sem JWT, 401)
-                                            ├── chama o Gemini com GEMINI_API_KEY
+                                            ├── chama o Claude com ANTHROPIC_API_KEY
                                             ├── grava historico_ia + sintomas_atendimento
             ◀────────── JSON ───────────────┘
 ```
@@ -39,8 +39,9 @@ app / site  ──POST { descricao } + JWT──▶  triagem
 Detalhes que valem saber:
 
 - O cliente Supabase da função usa o **JWT de quem chamou**, então as gravações continuam sujeitas ao RLS — a função não tem privilégio especial.
-- A resposta do modelo é normalizada antes de gravar: nível preso entre 1 e 5, e os 12 sintomas sempre presentes (o modelo às vezes omite).
-- `responseMimeType: 'application/json'` evita as cercas ```` ```json ```` que o site precisa limpar na mão.
+- **Saída estruturada**: o formato é imposto por um schema Zod (`output_config.format`), não pedido no prompt. O modelo não consegue devolver outra coisa — some o trabalho que o site faz na mão de limpar cercas ```` ```json ````, tratar campo ausente e validar o nível.
+- **Modelo**: `claude-opus-5` com `effort: 'low'` — classificação de um texto curto não exige raciocínio profundo, e o esforço baixo corta bastante do custo. Para reduzir mais, trocar por `claude-sonnet-5` ou `claude-haiku-4-5` é uma linha.
+- **Recusa**: o modelo pode declinar um relato por segurança (`stop_reason: 'refusal'`); nesse caso a função responde 422 com orientação, em vez de devolver conteúdo vazio.
 - Falha ao gravar o histórico **não** derruba a resposta: a orientação já foi produzida e é o que o usuário precisa.
 
 ### Publicar
@@ -48,7 +49,7 @@ Detalhes que valem saber:
 ```bash
 cd services
 npx supabase functions new triagem          # só na primeira vez; o código já está versionado
-npx supabase secrets set GEMINI_API_KEY=<a chave NOVA, depois de revogar a antiga>
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 npx supabase functions deploy triagem
 ```
 
@@ -66,13 +67,13 @@ curl -X POST "https://<projeto>.supabase.co/functions/v1/triagem" \
 
 ### Pendente no site (`frontend/`) — não alterado
 
-O site **continua chamando o Gemini direto do navegador**. Enquanto isso durar, a `VITE_API_KEY` fica exposta no bundle e não pode ser revogada. Quando alguém for mexer lá:
+O site **continua chamando o Gemini direto do navegador** — e a chave dele já expirou, então a triagem do site está fora do ar. Quando alguém for mexer lá:
 
 1. Em `pages/home_page/js/sintomas_ai/api.js`, trocar `genAI.getGenerativeModel(...)` por
    `supabase.functions.invoke('triagem', { body: { descricao } })`.
 2. **Remover a chamada a `chatService.saveInteraction`** — a função já grava o histórico. Sem isso, cada triagem vira duas linhas em `historico_ia`.
 3. Remover `VITE_API_KEY` do `.env` e `@google/generative-ai` do `package.json`.
-4. Só então revogar a chave antiga do Gemini no Google AI Studio.
+4. A chave antiga do Gemini já expirou — não há o que revogar.
 
 > Enquanto o site não for migrado, não há duplicação: ele salva pelo caminho antigo e o app pelo novo.
 
@@ -106,11 +107,11 @@ npx supabase functions serve nome --env-file .env.local
 npx supabase functions deploy nome
 
 # Secrets (só existem no servidor — nunca no app)
-npx supabase secrets set GEMINI_API_KEY=...
+npx supabase secrets set ANTHROPIC_API_KEY=...
 ```
 
 ## Regras
 
-1. **Nenhuma chave privada sai desta pasta.** `service_role` e chaves de terceiros (Gemini) entram como *secrets*, nunca em código.
+1. **Nenhuma chave privada sai desta pasta.** `service_role` e chaves de terceiros (Anthropic) entram como *secrets*, nunca em código.
 2. **Toda tabela tem RLS ligado.** Uma tabela sem policy é uma tabela pública para quem tiver a anon key.
 3. **Mudança de schema é migration.** Nada de alterar tabela só pelo dashboard sem gerar o SQL correspondente aqui.

@@ -29,7 +29,7 @@ Apêndices: [A. Mapa web → mobile](#apêndice-a--mapa-web--mobile) · [B. Stac
 
 ## 0. Antes de começar
 
-**O que o app é:** um segundo cliente do mesmo backend. Não existe API própria — o Supabase (Auth + Postgres) é o backend, e a única lógica de servidor (chamada ao Gemini) vira uma Edge Function no passo 13.
+**O que o app é:** um segundo cliente do mesmo backend. Não existe API própria — o Supabase (Auth + Postgres) é o backend, e a única lógica de servidor (a chamada ao modelo de IA) vira uma Edge Function no passo 13.
 
 **O que se reaproveita do site:** a lógica dos `Services/` (auth, perfil, farmácias, histórico), as regras de negócio (níveis de urgência, validações do perfil), os textos de primeiros socorros/prevenção e os tokens visuais do `config.css`.
 
@@ -952,7 +952,7 @@ async analisar(descricao: string) {
 }
 ```
 
-O `supabase-js` envia o JWT do usuário automaticamente. O prompt mestre, o parse do JSON e a chave do Gemini **não existem no app** — vivem na Edge Function.
+O `supabase-js` envia o JWT do usuário automaticamente. O prompt, o schema da resposta e a chave da Anthropic **não existem no app** — vivem na Edge Function.
 
 `historico()` = `from('historico_ia').select('*, sintomas_atendimento(*)').eq('user_id', …).order('created_at', { ascending: false })`. O cache em `localStorage` do site deixa de existir: o histórico vem do banco (é o TanStack Query que cacheia).
 
@@ -1019,11 +1019,11 @@ eas build -p ios --profile production
 | `SUPABASE_URL` | Sim | Pública por design |
 | `SUPABASE_ANON_KEY` | Sim, **com RLS ligado** | Só dá o acesso que as policies permitem |
 | `service_role` | **Nunca** | Ignora RLS |
-| Chave do Gemini | **Nunca** | Sem noção de usuário; quem tiver usa sua cota |
+| Chave do modelo de IA (Anthropic, Gemini) | **Nunca** | A API não tem noção de usuário: quem tiver a chave usa a cota |
 
 ### 13.2 Situação atual no `frontend/`
 
-A chave do Gemini (`VITE_API_KEY`) está embutida no bundle em `frontend/dist/assets/*.js`, e `dist/` está **commitado no git**. A chave já é pública no repositório.
+A chave do Gemini (`VITE_API_KEY`) está embutida no bundle em `frontend/dist/assets/*.js`, e o `dist/` esteve **commitado num repositório público**. Essa chave já expirou, então o dano ficou contido — mas o padrão é o que importa: uma chave em bundle é uma chave publicada.
 
 Correção, nesta ordem:
 
@@ -1065,17 +1065,17 @@ Isso é o que torna a anon key segura no bundle: ela só dá o acesso que as pol
 **Já implementada** em `services/supabase/functions/triagem/index.ts`. O README de `services/` tem o deploy, o fluxo e como testar com `curl`.
 
 ```
-app (ou site)                  Supabase                          Google
-─────────────                  ──────────────────────────────    ──────
+app (ou site)                  Supabase                        Anthropic
+─────────────                  ──────────────────────────────  ─────────
 functions.invoke('triagem') ──▶ 1. valida o JWT (sem ele, 401)
-   com o JWT do usuário         2. lê GEMINI_API_KEY do secret ──▶ Gemini
-                                3. normaliza e grava o histórico ◀─ resposta
+   com o JWT do usuário         2. lê a chave do secret ──────▶ Claude
+                                3. grava o histórico          ◀─ resposta
         ◀── JSON ──────────     4. devolve o resultado
 ```
 
 ```bash
 cd services
-npx supabase secrets set GEMINI_API_KEY=<a chave NOVA>
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 npx supabase functions deploy triagem
 ```
 
@@ -1099,7 +1099,7 @@ O site **ainda chama o Gemini direto do navegador**, então a `VITE_API_KEY` con
 - [x] Edge Function `triagem` escrita, com a chave só no servidor
 - [x] `mobile/.env` contém apenas valores públicos (Supabase + Firebase)
 - [x] Regras do Firestore: leitura pública em `pharmacies`, escrita bloqueada
-- [ ] `GEMINI_API_KEY` cadastrada como secret e a função publicada
+- [ ] `ANTHROPIC_API_KEY` cadastrada como secret e a função publicada
 - [ ] Site migrado para a Edge Function (seção 13.5)
 - [ ] **Chave antiga do Gemini revogada** — só depois do item acima
 - [ ] `@google/generative-ai` e `VITE_API_KEY` removidos do `frontend/`
