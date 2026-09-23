@@ -13,7 +13,7 @@ export const SINTOMAS = [
   { coluna: 'dor_no_peito', rotulo: 'Dor no Peito', icone: 'heart-pulse' },
   { coluna: 'nausea_vomito', rotulo: 'Náusea/Vômito', icone: 'face-dizzy' },
   { coluna: 'diarreia', rotulo: 'Diarreia', icone: 'toilet' },
-  { coluna: 'dor_abdominal', rotulo: 'Dor Abdominal', icone: 'stomach' },
+  { coluna: 'dor_abdominal', rotulo: 'Dor Abdominal', icone: 'person-circle-exclamation' },
   { coluna: 'dor_nas_costas', rotulo: 'Dor nas Costas', icone: 'person' },
   { coluna: 'tontura', rotulo: 'Tontura', icone: 'arrows-spin' },
   { coluna: 'fraqueza', rotulo: 'Fraqueza/Cansaço', icone: 'bed' },

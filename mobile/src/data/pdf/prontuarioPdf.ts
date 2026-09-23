@@ -1,5 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
 import type { PreProntuario } from '@domain/entities/PreProntuario';
 import { rotuloDoSintoma } from '@domain/entities/PreProntuario';
 import { dataParaBR, mascararCPF, mascararTelefone } from '@core/utils/formato';
@@ -123,10 +124,24 @@ export interface PdfGerado {
   compartilhavel: boolean;
 }
 
-/** Gera o arquivo e devolve o caminho local. */
+/**
+ * Gera o arquivo e devolve o caminho local.
+ *
+ * O `printToFileAsync` escreve num diretório interno do módulo de impressão, de
+ * onde o compartilhamento não tem permissão de leitura ("Not allowed to read
+ * file under given URL"). Por isso o PDF é copiado para o cache do app antes de
+ * ser oferecido — o que também dá ao arquivo um nome decente, já que é esse
+ * nome que o destinatário vê.
+ */
 export async function gerarPdfProntuario(p: PreProntuario): Promise<PdfGerado> {
   const { uri } = await Print.printToFileAsync({ html: montarHtml(p), base64: false });
-  return { uri, compartilhavel: await Sharing.isAvailableAsync() };
+
+  const carimbo = new Date().toISOString().slice(0, 10);
+  const destino = new File(Paths.cache, `pre-prontuario-${carimbo}.pdf`);
+  if (destino.exists) destino.delete();
+  await new File(uri).copy(destino);
+
+  return { uri: destino.uri, compartilhavel: await Sharing.isAvailableAsync() };
 }
 
 /**

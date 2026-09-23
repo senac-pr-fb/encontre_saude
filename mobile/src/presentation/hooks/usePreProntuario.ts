@@ -22,14 +22,16 @@ const txt = (v: string | number | null | undefined) => (v === null || v === unde
  */
 export function usePreProntuario() {
   const { usuario } = useAuth();
-  const { perfil } = usePerfil();
+  // `carregando` importa: enquanto a consulta não volta, `perfil` é um perfil
+  // vazio, e montar o formulário com ele deixaria tudo em branco.
+  const { perfil, carregando: perfilCarregando } = usePerfil();
   const [iniciais, setIniciais] = useState<ProntuarioFormInput | null>(null);
   const [triagem, setTriagem] = useState<TriagemRecente | null>(null);
   const [rascunhoRestaurado, setRascunhoRestaurado] = useState(false);
   const montado = useRef(false);
 
   useEffect(() => {
-    if (montado.current || !usuario) return;
+    if (montado.current || !usuario || perfilCarregando) return;
     montado.current = true;
 
     (async () => {
@@ -71,7 +73,7 @@ export function usePreProntuario() {
       setRascunhoRestaurado(rascunho !== null);
       setIniciais(base);
     })();
-  }, [usuario, perfil]);
+  }, [usuario, perfil, perfilCarregando]);
 
   const salvarRascunho = useCallback((valores: ProntuarioFormInput) => {
     container.prontuario.rascunho.salvar(valores);

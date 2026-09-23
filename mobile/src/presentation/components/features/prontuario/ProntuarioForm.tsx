@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Controller, useForm, useWatch, type Control, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,8 +41,15 @@ export function ProntuarioForm({ valoresIniciais, onRascunho, onConcluir, gerand
   });
 
   // Rascunho automático: grava a cada mudança, como o site faz no localStorage.
+  // A primeira passagem é pulada — senão os valores pré-preenchidos virariam
+  // um "rascunho" e o aviso de recuperação apareceria sem o usuário ter digitado.
   const valores = useWatch({ control });
+  const primeiraPassagem = useRef(true);
   useEffect(() => {
+    if (primeiraPassagem.current) {
+      primeiraPassagem.current = false;
+      return;
+    }
     onRascunho(getValues());
   }, [valores, getValues, onRascunho]);
 
