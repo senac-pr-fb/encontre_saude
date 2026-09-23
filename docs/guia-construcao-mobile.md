@@ -972,37 +972,57 @@ O `supabase-js` envia o JWT do usuário automaticamente. O prompt, o schema da r
 
 ## 12. Build e distribuição
 
-**Objetivo:** gerar APK/AAB e build iOS sem máquina Mac.
+**Objetivo:** gerar APK/AAB sem máquina Mac — e, de quebra, destravar as três funcionalidades que o Expo Go não permite.
+
+### Por que isto não é só "empacotar"
+
+Três coisas do app **só funcionam em build**, e todas pela mesma razão: o Expo Go é um app de terceiro com identidade e sandbox próprias.
+
+| Funcionalidade | Por que falha no Expo Go |
+|---|---|
+| Login com Google | O deep link é `exp://<ip-da-rede>:8081`, que muda de rede e não é estável para callback de OAuth |
+| Compartilhar o PDF | O `expo-sharing` não consegue ler o diretório da sandbox do Expo Go (`isAllowedToRead` reprova) |
+| Mapa com chave própria | No Expo Go o mapa usa a chave da Expo; a de vocês só entra num build |
+
+No build, o app tem o esquema `encontresaude://`, o próprio diretório de arquivos e o próprio `app.json` — e as três passam a funcionar.
+
+### `eas.json`
+
+Três perfis, já versionados em `mobile/eas.json`:
+
+| Perfil | Saída | Para quê |
+|---|---|---|
+| `development` | APK com dev client | Desenvolver com recarregamento, fora do Expo Go |
+| `preview` | APK instalável | Distribuir para a equipe testar |
+| `production` | AAB | Publicar na Play Store |
+
+### A armadilha: o `.env` não sobe
+
+O EAS respeita o `.gitignore`, e o `.env` está nele. **Um build sem as variáveis configuradas no EAS instala e quebra na abertura**, porque o `core/config/env.ts` valida na inicialização e lança. Envie o arquivo inteiro de uma vez:
 
 ```bash
-npm i -g eas-cli
-eas login
-eas build:configure          # cria eas.json
-
-# variáveis de ambiente do build (substitui o .env local)
-eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value https://xxxx.supabase.co --visibility plaintext
-eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value eyJ... --visibility plaintext
-
-# APK para testar em Android sem loja
-eas build -p android --profile preview
-
-# builds de loja
-eas build -p android --profile production
-eas build -p ios --profile production
+cd mobile
+npx eas-cli login
+npx eas-cli init              # cria o projeto no expo.dev e grava o projectId
+npm run eas:env               # eas env:push preview --path .env
+npm run build:preview
 ```
 
-`eas.json` sugerido:
+> Repita o `env:push` para cada ambiente que for usar (`development`, `production`) — as variáveis são por ambiente, não globais.
 
-```jsonc
-{
-  "build": {
-    "preview":    { "distribution": "internal", "android": { "buildType": "apk" } },
-    "production": { "autoIncrement": true }
-  }
-}
+Marque as chaves como `plaintext`: todas elas vão para o bundle de qualquer forma (é o que `EXPO_PUBLIC_` significa), e marcá-las como `secret` só esconderia o valor de vocês, não de quem abrir o APK.
+
+### Depois do primeiro build: restringir a chave do Maps
+
+Só agora existe a impressão digital do certificado, que é o que permite amarrar a chave ao app:
+
+```bash
+npx eas-cli credentials        # mostra a SHA-1
 ```
 
-**Pronto quando:** o APK `preview` instala num Android e o fluxo completo (login → perfil → farmácias → triagem) funciona sem o Expo Go.
+No Google Cloud Console, na chave: *Application restrictions* → **Android apps** → `br.com.encontresaude.app` + a SHA-1; e em *API restrictions*, só **Maps SDK for Android**. Sem isso, quem extrair a chave do APK usa a cota de vocês.
+
+**Pronto quando:** o APK `preview` instala num Android e o fluxo completo funciona sem o Expo Go — incluindo login com Google, mapa das farmácias e compartilhamento do pré-prontuário.
 
 ---
 
