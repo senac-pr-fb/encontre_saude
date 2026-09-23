@@ -20,6 +20,62 @@ services/
 | `sintomas_atendimento` | Sintomas detectados em cada interação (`historico_id`) | dono do histórico |
 | ~~`pharmacies`~~ | **Removida** — as farmácias migraram para o Firestore (coleção `pharmacies`) | — |
 
+O RLS já está habilitado nas três tabelas, com policies por `user_id`. Confirmado com uma consulta anônima: as tabelas têm linhas e a resposta vem vazia.
+
+## Edge Function `triagem`
+
+Analisa o relato de sintomas com o Gemini e grava a consulta no histórico.
+
+**Existe para que a chave do Gemini nunca entre num cliente.** O app manda só o texto; a chave, o prompt mestre e a gravação ficam no servidor.
+
+```
+app / site  ──POST { descricao } + JWT──▶  triagem
+                                            ├── valida o usuário (sem JWT, 401)
+                                            ├── chama o Gemini com GEMINI_API_KEY
+                                            ├── grava historico_ia + sintomas_atendimento
+            ◀────────── JSON ───────────────┘
+```
+
+Detalhes que valem saber:
+
+- O cliente Supabase da função usa o **JWT de quem chamou**, então as gravações continuam sujeitas ao RLS — a função não tem privilégio especial.
+- A resposta do modelo é normalizada antes de gravar: nível preso entre 1 e 5, e os 12 sintomas sempre presentes (o modelo às vezes omite).
+- `responseMimeType: 'application/json'` evita as cercas ```` ```json ```` que o site precisa limpar na mão.
+- Falha ao gravar o histórico **não** derruba a resposta: a orientação já foi produzida e é o que o usuário precisa.
+
+### Publicar
+
+```bash
+cd services
+npx supabase functions new triagem          # só na primeira vez; o código já está versionado
+npx supabase secrets set GEMINI_API_KEY=<a chave NOVA, depois de revogar a antiga>
+npx supabase functions deploy triagem
+```
+
+`SUPABASE_URL` e `SUPABASE_ANON_KEY` são injetadas automaticamente — não precisam de `secrets set`.
+
+### Testar sem app
+
+```bash
+# <JWT> = access_token de um usuário logado (dá para pegar no log do app)
+curl -X POST "https://<projeto>.supabase.co/functions/v1/triagem" \
+  -H "Authorization: Bearer <JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{"descricao":"dor de cabeça forte há dois dias e febre"}'
+```
+
+### Pendente no site (`frontend/`) — não alterado
+
+O site **continua chamando o Gemini direto do navegador**. Enquanto isso durar, a `VITE_API_KEY` fica exposta no bundle e não pode ser revogada. Quando alguém for mexer lá:
+
+1. Em `pages/home_page/js/sintomas_ai/api.js`, trocar `genAI.getGenerativeModel(...)` por
+   `supabase.functions.invoke('triagem', { body: { descricao } })`.
+2. **Remover a chamada a `chatService.saveInteraction`** — a função já grava o histórico. Sem isso, cada triagem vira duas linhas em `historico_ia`.
+3. Remover `VITE_API_KEY` do `.env` e `@google/generative-ai` do `package.json`.
+4. Só então revogar a chave antiga do Gemini no Google AI Studio.
+
+> Enquanto o site não for migrado, não há duplicação: ele salva pelo caminho antigo e o app pelo novo.
+
 ## Setup (uma vez por máquina)
 
 ```bash

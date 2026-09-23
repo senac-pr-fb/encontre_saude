@@ -6,7 +6,7 @@
  *   passo 7  -> perfil    (feito)
  *   passo 8  -> farmacias (feito)
  *   passo 10 -> prontuario (feito)
- *   passo 11 -> triagem
+ *   passo 11 -> triagem   (feito)
  */
 import { supabase } from '@data/supabase/client';
 import { SupabaseAuthRepository } from '@data/supabase/SupabaseAuthRepository';
@@ -15,6 +15,8 @@ import { SignIn, SignUp, SignOut, SignInWithGoogle, RecuperarSenha, AtualizarSen
 import { GetPerfil, SavePerfil } from '@domain/usecases/perfil';
 import { ListarFarmacias } from '@domain/usecases/farmacias';
 import { SalvarConsulta } from '@domain/usecases/prontuario';
+import { RealizarTriagem, GetHistorico } from '@domain/usecases/triagem';
+import { SupabaseTriagemRepository } from '@data/supabase/SupabaseTriagemRepository';
 import { SupabaseProntuarioRepository } from '@data/supabase/SupabaseProntuarioRepository';
 import { criarRascunho, triagemLocal, CHAVE_RASCUNHO_PRONTUARIO } from '@data/local/armazenamentoLocal';
 import type { ProntuarioFormInput } from '@domain/usecases/prontuario';
@@ -25,6 +27,7 @@ const perfilRepo = new SupabasePerfilRepository(supabase);
 // Farmacias vivem no Firestore (catalogo publico), nao no Supabase.
 const farmaciaRepo = new FirestoreFarmaciaRepository();
 const prontuarioRepo = new SupabaseProntuarioRepository(supabase);
+const triagemRepo = new SupabaseTriagemRepository(supabase);
 
 export const container = {
   auth: {
@@ -48,5 +51,9 @@ export const container = {
     salvar: new SalvarConsulta(prontuarioRepo, perfilRepo),
     rascunho: criarRascunho<ProntuarioFormInput>(CHAVE_RASCUNHO_PRONTUARIO),
     triagemLocal,
+  },
+  triagem: {
+    realizar: new RealizarTriagem(triagemRepo, triagemLocal),
+    historico: new GetHistorico(triagemRepo),
   },
 } as const;

@@ -891,38 +891,44 @@ compartilhar    →  expo-sharing
 
 **Objetivo:** substituir `sintomas_ai/api.js` + `sintomas.js` na Home.
 
-> Depende da Edge Function `triagem` publicada (passo 13). Até lá, implemente domain e presentation contra um `FakeTriagemRepository` que devolve um JSON fixo — a arquitetura permite exatamente isso.
+> **Depende da Edge Function `triagem` publicada.** O código dela está em `services/supabase/functions/triagem/`; o deploy e os detalhes estão no [README de services](../services/README.md).
 
 ### Domain
 
 ```ts
-// src/domain/entities/NivelUrgencia.ts   (era o objeto `niveis` do api.js)
+// src/domain/entities/Triagem.ts   (o objeto `niveis` do api.js, ampliado)
 export const NIVEIS = {
-  1: { cor: '#5EA7FF', texto: 'Não Urgente' },
-  2: { cor: '#ABFB4F', texto: 'Pouco Urgente' },
-  3: { cor: '#FFEA00', texto: 'Urgente' },
-  4: { cor: '#FF771C', texto: 'Muito Urgente' },
-  5: { cor: '#D51717', texto: 'Emergência' },
+  1: { cor: '#5EA7FF', texto: 'Não Urgente',   resumo: '…', conduta: '…' },
+  2: { cor: '#ABFB4F', texto: 'Pouco Urgente', resumo: '…', conduta: '…' },
+  3: { cor: '#FFEA00', texto: 'Urgente',       resumo: '…', conduta: '…' },
+  4: { cor: '#FF771C', texto: 'Muito Urgente', resumo: '…', conduta: '…' },
+  5: { cor: '#D51717', texto: 'Emergência',    resumo: '…', conduta: '…' },
 } as const;
 export type NivelUrgencia = keyof typeof NIVEIS;
 ```
 
+> No site esses dados estão em **dois lugares** que precisam ser mantidos em sincronia na mão: as cores em `api.js` e os textos em `create_feedback.js`. Aqui viram um objeto só.
+
 ```ts
-// src/domain/entities/Triagem.ts
-export interface Sintomas {
-  febre: boolean; dorDeCabeca: boolean; tosse: boolean; faltaDeAr: boolean;
-  dorNoPeito: boolean; nauseaVomito: boolean; diarreia: boolean; dorAbdominal: boolean;
-  dorNasCostas: boolean; tontura: boolean; fraqueza: boolean; coriza: boolean;
-}
+// Os sintomas são a lista de colunas, não 12 booleanos soltos:
+// reaproveita SINTOMAS de PreProntuario e casa com `sintomas_atendimento`.
 export interface Triagem {
   nivel: NivelUrgencia;
   resumo: string;
   recomendacao: string;
   primeirosSocorros: string;
   unidadeRecomendada: string;
-  sintomas: Sintomas;
+  sintomas: ColunaSintoma[];
 }
-export interface InteracaoHistorico { id: string; data: string; descricao: string; triagem: Triagem }
+
+export interface InteracaoHistorico {
+  id: string;
+  quando: string;
+  descricao: string;
+  /** null quando o registro veio do pré-prontuário, que não passa pela IA. */
+  triagem: Triagem | null;
+  sintomas: ColunaSintoma[];
+}
 ```
 
 ```ts
@@ -933,7 +939,7 @@ export interface TriagemRepository {
 }
 ```
 
-`RealizarTriagem.execute(descricao)` valida tamanho (não vazio, ≤ 2000 caracteres) e delega.
+`RealizarTriagem.execute(descricao)` valida o tamanho (10 a 2000 caracteres), delega — e, no sucesso, chama `triagemLocal.registrar()`. **É esse registro que alimenta a ponte para o pré-prontuário** (passo 10): a triagem fica guardada por 20 minutos e preenche a queixa principal.
 
 ### Data
 
@@ -952,11 +958,15 @@ O `supabase-js` envia o JWT do usuário automaticamente. O prompt mestre, o pars
 
 ### Presentation
 
-- `useTriagem()` — `useMutation` para analisar + `useQuery(['historico', userId])` para o histórico (usuário sempre logado no app).
-- Home: campo de texto multiline, botão **Analisar**, `TriagemResultCard` com a cor do nível (`NIVEIS[nivel].cor`), seções resumo/recomendação/primeiros socorros/unidade, chips dos sintomas detectados.
-- Lista de histórico abaixo.
+- `useTriagem()` — `useMutation` para analisar + `useQuery(['historico', userId])`. Como a Edge Function grava o histórico, basta invalidar a query no sucesso.
+- **Home:** aviso médico, campo de texto com contador, `ResultadoTriagem` com a faixa colorida do nível, e o histórico embaixo.
+- **Legenda dos 5 níveis:** no site fica sempre visível num painel lateral; no celular não cabe, então virou acordeão fechado por padrão.
+- **Nível 5:** aparece um botão de **ligar para o SAMU** acima do resultado. Numa emergência, ninguém deveria precisar ler três parágrafos para achar o telefone.
+- **Histórico unificado:** a tabela `historico_ia` recebe tanto triagens quanto pré-prontuários. Os do prontuário têm texto fixo no lugar do JSON da IA, então `triagem` fica `null` e o item aparece com selo próprio, em vez de quebrar o parse.
 
-**Pronto quando:** descrever sintomas devolve o card colorido; logado, a interação aparece no histórico e na tabela `historico_ia`.
+> Duas diferenças de contraste que importam: as cores dos níveis 2 e 3 (verde-limão e amarelo) são claras demais para texto branco — o `ResultadoTriagem` inverte para texto escuro nesses dois.
+
+**Pronto quando:** descrever sintomas devolve o card colorido, a interação aparece no histórico e em `historico_ia`, e abrir o pré-prontuário em seguida traz a queixa preenchida.
 
 ---
 
@@ -1025,118 +1035,74 @@ Correção, nesta ordem:
 
 ### 13.3 RLS — o que protege o banco de verdade
 
-Com a anon key pública e RLS desligado, qualquer pessoa lê `dados_saude` inteira com um `curl`. Confira no dashboard (*Table Editor* mostra "RLS disabled" na tabela). Crie a migration em `services/supabase/migrations/`:
+**Já configurado neste projeto:** as três tabelas têm RLS habilitado com policies por `user_id`. Não mexa nelas sem necessidade.
+
+Verificação rápida, sem abrir o dashboard — uma leitura anônima de uma tabela que tem linhas:
+
+```bash
+curl -s "$SUPABASE_URL/rest/v1/dados_saude?select=*&limit=1" -H "apikey: $ANON_KEY"
+# []      → RLS filtrando, como deve ser
+# [{...}] → RLS desligado: corrigir antes de qualquer publicação
+```
+
+A forma das policies, para referência:
 
 ```sql
-alter table dados_saude          enable row level security;
-alter table historico_ia         enable row level security;
-alter table sintomas_atendimento enable row level security;
-
 create policy "dono do perfil" on dados_saude
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-create policy "dono do historico" on historico_ia
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- sintomas_atendimento não tem user_id: valida pelo histórico pai
 create policy "dono dos sintomas" on sintomas_atendimento
   for all using (
     exists (select 1 from historico_ia h where h.id = historico_id and h.user_id = auth.uid())
-  ) with check (
-    exists (select 1 from historico_ia h where h.id = historico_id and h.user_id = auth.uid())
   );
-
 ```
 
-```bash
-cd services && npx supabase db push
-```
+Isso é o que torna a anon key segura no bundle: ela só dá o acesso que as policies permitem.
 
 ### 13.4 Edge Function `triagem`
 
+**Já implementada** em `services/supabase/functions/triagem/index.ts`. O README de `services/` tem o deploy, o fluxo e como testar com `curl`.
+
 ```
-App (web ou RN)                Supabase                          Google
+app (ou site)                  Supabase                          Google
 ─────────────                  ──────────────────────────────    ──────
-functions.invoke('triagem') ──▶ 1. valida o JWT (quem pede?)
+functions.invoke('triagem') ──▶ 1. valida o JWT (sem ele, 401)
    com o JWT do usuário         2. lê GEMINI_API_KEY do secret ──▶ Gemini
-                                3. salva em historico_ia      ◀── resposta
+                                3. normaliza e grava o histórico ◀─ resposta
         ◀── JSON ──────────     4. devolve o resultado
 ```
 
 ```bash
 cd services
-npx supabase functions new triagem
-npx supabase secrets set GEMINI_API_KEY=<chave nova>
-```
-
-```ts
-// services/supabase/functions/triagem/index.ts
-import { createClient } from 'npm:@supabase/supabase-js@2';
-
-const PROMPT_MESTRE = `…`; // copiar de frontend/pages/home_page/js/sintomas_ai/api.js
-
-Deno.serve(async (req) => {
-  // 1. Só usuário logado — o JWT vem no header Authorization
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: req.headers.get('Authorization')! } } },
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new Response('Unauthorized', { status: 401 });
-
-  const { descricao } = await req.json();
-  if (typeof descricao !== 'string' || !descricao.trim() || descricao.length > 2000)
-    return new Response('Bad request', { status: 400 });
-
-  // 2. Gemini com a chave que só existe aqui
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `${PROMPT_MESTRE}\n\nRelato: ${descricao}` }] }],
-        generationConfig: { responseMimeType: 'application/json' },
-      }),
-    },
-  );
-  const json = await r.json();
-  const resultado = JSON.parse(json.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}');
-
-  // 3. Histórico — o cliente carrega o JWT do usuário, então RLS se aplica
-  const { data: hist } = await supabase
-    .from('historico_ia')
-    .insert({ user_id: user.id, descricao_usuario: descricao, resposta_ia: JSON.stringify(resultado) })
-    .select().single();
-  if (hist && resultado.sintomas) {
-    await supabase.from('sintomas_atendimento').insert({ historico_id: hist.id, ...resultado.sintomas });
-  }
-
-  return Response.json(resultado);
-});
-```
-
-```bash
+npx supabase secrets set GEMINI_API_KEY=<a chave NOVA>
 npx supabase functions deploy triagem
 ```
 
-No site, `createApi()` em `api.js` passa a chamar:
+`SUPABASE_URL` e `SUPABASE_ANON_KEY` são injetadas automaticamente. O cliente dentro da função usa o **JWT de quem chamou**, então as gravações continuam sujeitas ao RLS — a função não tem privilégio especial.
 
-```js
-const { data, error } = await supabase.functions.invoke('triagem', { body: { descricao } });
-```
+### 13.5 Pendente no site (`frontend/`)
 
-No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRepository` no container.
+O site **ainda chama o Gemini direto do navegador**, então a `VITE_API_KEY` continua no bundle e não pode ser revogada. Quando alguém for mexer lá:
 
-### 13.5 Checklist final
+1. Em `pages/home_page/js/sintomas_ai/api.js`, trocar `genAI.getGenerativeModel(...)` por `supabase.functions.invoke('triagem', { body: { descricao } })`.
+2. **Remover a chamada a `chatService.saveInteraction`** — a função já grava o histórico. Sem isso, cada triagem vira duas linhas em `historico_ia`.
+3. Remover `VITE_API_KEY` do `.env` e `@google/generative-ai` do `package.json`.
+4. Só então revogar a chave antiga no Google AI Studio.
 
-- [ ] Chave antiga do Gemini revogada
-- [ ] `dist/` fora do git e no `.gitignore`
-- [ ] RLS ativo nas 4 tabelas, policies aplicadas via migration
-- [ ] `GEMINI_API_KEY` só como secret do Supabase
-- [ ] `frontend/.env` e `mobile/.env` contêm apenas URL e anon key
-- [ ] `@google/generative-ai` removido do `frontend/package.json`
+> Enquanto o site não migrar, não há duplicação: ele salva pelo caminho antigo, o app pelo novo.
+
+### 13.6 Checklist final
+
+- [x] RLS ativo nas três tabelas, com policies por `user_id`
+- [x] `dist/` fora do git e no `.gitignore`
+- [x] Edge Function `triagem` escrita, com a chave só no servidor
+- [x] `mobile/.env` contém apenas valores públicos (Supabase + Firebase)
+- [x] Regras do Firestore: leitura pública em `pharmacies`, escrita bloqueada
+- [ ] `GEMINI_API_KEY` cadastrada como secret e a função publicada
+- [ ] Site migrado para a Edge Function (seção 13.5)
+- [ ] **Chave antiga do Gemini revogada** — só depois do item acima
+- [ ] `@google/generative-ai` e `VITE_API_KEY` removidos do `frontend/`
 - [ ] Redirect URLs do Supabase incluem `encontresaude://**`
 
 ---
@@ -1157,8 +1123,8 @@ No app, é o `SupabaseTriagemRepository` do passo 11 — troque o `FakeTriagemRe
 | `shared/footer.js` | tela "Sobre" ou rodapé da aba Perfil |
 | `shared/toggle_senha.js` | `components/ui/PasswordInput.tsx` |
 | `shared/telegram_widget.js` | `components/ui/TelegramFab.tsx` (`Linking.openURL`) |
-| `sintomas_ai/api.js` — prompt, parse, Gemini | Edge Function `triagem` |
-| `sintomas_ai/api.js` — `niveis` | `domain/entities/NivelUrgencia.ts` |
+| `sintomas_ai/api.js` — prompt, parse, chave | Edge Function `triagem` em `services/` |
+| `sintomas_ai/api.js` — `niveis` + `create_feedback.js` | `domain/entities/Triagem.ts` (`NIVEIS`, cor e texto juntos) |
 | `sintomas_ai/api.js` — `localStorage` de sessões | removido; histórico vem do banco |
 | `farmacias_pages/js/create_map.js` | `components/features/FarmaciasMap.tsx` (`react-native-maps`) |
 | `farmacias_pages/js/create_bairros.js` | `bairrosDe()` derivado da lista + `BairroPicker` |
