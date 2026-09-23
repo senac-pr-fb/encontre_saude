@@ -869,7 +869,16 @@ compartilhar    →  expo-sharing
 
 **PDF: `expo-print` em vez de jsPDF.** O site desenha o documento coordenada a coordenada (~130 linhas de `doc.text(x, y)`, com controle manual de quebra de página). No app, o documento é HTML e o motor de impressão do sistema gera o A4: o layout vira CSS, a paginação é automática e mudar o visual não exige recalcular posições.
 
-**Envio: o menu nativo, não canais simulados.** A etapa 4 do site pede e-mail ou WhatsApp, valida o formato — e então apenas mostra um toast dizendo "envio simulado". Replicar isso no app criaria uma expectativa falsa. O `expo-sharing` abre o menu do sistema, que já lista e-mail, WhatsApp e salvar arquivo, e o envio acontece de verdade. Se um dia o envio automático for necessário, ele é uma Edge Function, não um formulário.
+**Entrega: duas saídas reais, não canais simulados.** A etapa 4 do site pede e-mail ou WhatsApp, valida o formato — e então apenas mostra um toast dizendo "envio simulado". Replicar isso criaria expectativa falsa. O app oferece:
+
+| Botão | Como funciona | Onde funciona |
+|---|---|---|
+| **Salvar ou imprimir PDF** | `Print.printAsync` abre o diálogo do sistema, com "Salvar como PDF" no Android e a folha de compartilhamento no iOS | Expo Go **e** build |
+| **Compartilhar arquivo** | `Sharing.shareAsync` abre o menu nativo (e-mail, WhatsApp, salvar) | Só em build |
+
+> **Por que o compartilhamento falha no Expo Go.** O `SharingModule` do Android checa se o caminho está entre os que o app pode ler (`isAllowedToRead`) e a sandbox do Expo Go reprova tanto o `cacheDirectory` quanto o `documentDirectory` — o erro é `Not allowed to read file under given URL`. Por isso a impressão é a ação principal: ela não toca o sistema de arquivos, o HTML vai direto para o motor de impressão. Rodando no Expo Go, a tela explica isso em uma linha (`ehExpoGo`, de `core/config/ambiente.ts`).
+
+> Se um dia o envio automático por e-mail for necessário, ele é uma Edge Function com o PDF anexado — não um campo de formulário no app.
 
 **Pronto quando:** as 4 etapas navegam e validam, o rascunho sobrevive a fechar o app, o PDF abre no visualizador do sistema e a consulta aparece no histórico do Supabase.
 

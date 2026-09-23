@@ -5,6 +5,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { Body, Button, Card, ErrorMessage, Screen, Subtitle, SuccessMessage, Title } from '@presentation/components/ui';
 import { ProntuarioForm } from '@presentation/components/features/prontuario/ProntuarioForm';
 import { usePreProntuario } from '@presentation/hooks/usePreProntuario';
+import { ehExpoGo } from '@core/config/ambiente';
 import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 
 export default function PreProntuarioScreen() {
@@ -39,21 +40,29 @@ export default function PreProntuarioScreen() {
         <SuccessMessage message="Pré-prontuário gerado e salvo no seu histórico." />
         <Card>
           <Body>
-            Leve o documento à unidade de saúde. Você pode compartilhá-lo por e-mail ou WhatsApp, ou salvar o arquivo
-            no aparelho.
+            Leve o documento à unidade de saúde. Você pode salvá-lo no aparelho, imprimir ou enviar por e-mail e
+            WhatsApp.
           </Body>
           <ErrorMessage message={erroCompartilhar} />
+
+          {/* Ação principal: o diálogo de impressão não passa pelo sistema de
+              arquivos, então funciona tanto no Expo Go quanto num build. */}
           <Button
-            title="Compartilhar PDF"
-            onPress={() => executar(() => compartilhar(concluir.data.pdf.uri))}
-          />
-          {/* Alternativa que nao passa pelo sistema de arquivos: o dialogo de
-              impressao do sistema tambem salva em PDF. */}
-          <Button
-            title="Abrir para imprimir ou salvar"
-            variant="secondary"
+            title="Salvar ou imprimir PDF"
             onPress={() => executar(() => imprimir(concluir.data.prontuario))}
           />
+          <Button
+            title="Compartilhar arquivo"
+            variant="secondary"
+            onPress={() => executar(() => compartilhar(concluir.data.pdf.uri))}
+          />
+          {ehExpoGo ? (
+            <Body style={styles.nota}>
+              O compartilhamento direto não funciona no Expo Go, que impede a leitura do arquivo. No app instalado
+              ele funciona normalmente — até lá, use &quot;Salvar ou imprimir&quot;.
+            </Body>
+          ) : null}
+
           <Button title="Voltar ao início" variant="ghost" onPress={() => router.replace('/(tabs)')} />
         </Card>
       </Screen>
@@ -103,4 +112,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   avisoTexto: { flex: 1, fontFamily: fonts.regular, fontSize: fontSizes.xs, color: colors.greenDark },
+  nota: { fontSize: fontSizes.xs, color: colors.textLight },
 });
