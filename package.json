@@ -1,10 +1,10 @@
 {
   "name": "encontre_saude",
   "version": "1.0.0",
-  "description": "Este projeto é uma aplicação de saúde (\"Encontre Saúde\") construída puramente em **HTML, CSS e Vanilla JS** utilizando módulos modernos do Javascript (ES Modules - ESM).\r Recentemente, a arquitetura do projeto foi expandida para suportar Autenticação e Banco de Dados (BaaS) através do servidor **Supabase**, adotando uma importação unificada via CDN JSDelivr para não ferir o design sem empacotadores (Node.js/NPM) do projeto original.",
+  "description": "Este projeto é uma aplicação de saúde (\"Encontre Saúde\") construída puramente em **HTML, CSS e Vanilla JS** utilizando módulos modernos do Javascript (ES Modules - ESM). A triagem de sintomas usa a API Gemini e a listagem de farmácias usa o Firebase (Firestore) como backend.",
   "main": "index.js",
   "scripts": {
-    "start":"vite",
+    "start": "vite",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
@@ -14,7 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@supabase/supabase-js": "^2.104.0",
+    "firebase": "^11.10.0",
     "vite": "^6.4.2"
   }
 }

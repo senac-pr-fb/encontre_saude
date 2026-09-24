@@ -1,34 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { API_KEY } from "../../../../config/env.js";
-import { chatService } from "../../../../Services/chatService.js";
-import { authService } from "../../../../Services/authService.js";
-
-// CHAVE DO HISTÓRICO NO localStorage
-const HISTORICO_KEY = "chatHistorico";
-
-export async function salvarSessaoNoHistorico(mensagens) {
-    const { session } = await authService.getUserSession();
-    if (!session) return; // Só salva se logado
-    if (!mensagens || mensagens.length === 0) return;
-
-    const historico = JSON.parse(localStorage.getItem(HISTORICO_KEY) || "[]");
-
-    const novaSessao = {
-        id: Date.now(),
-        data: new Date().toLocaleString("pt-BR"),
-        mensagens
-    };
-
-    // Mantém no máximo 20 sessões
-    historico.unshift(novaSessao);
-    if (historico.length > 20) historico.pop();
-
-    localStorage.setItem(HISTORICO_KEY, JSON.stringify(historico));
-}
-
-export function carregarHistorico() {
-    return JSON.parse(localStorage.getItem(HISTORICO_KEY) || "[]");
-}
 
 export function createApi() {
     const genAI = new GoogleGenerativeAI(API_KEY);
@@ -80,9 +51,6 @@ Você DEVE retornar sua resposta APENAS no formato JSON, sem crase ou markdown (
 **Texto do Usuário:**
 [AQUI_VOCE_INSERE_O_TEXTO_DO_USUARIO]
 `;
-
-    // Armazena mensagens da sessão atual (texto puro para histórico)
-    let sessaoAtual = [];
 
     async function avaliarSintomasDireto(textoUsuario) {
         try {
@@ -193,9 +161,6 @@ Você DEVE retornar sua resposta APENAS no formato JSON, sem crase ou markdown (
         // 2. Add User Message
         appendMessage(texto, 'user');
 
-        // Guarda na sessão atual (só texto)
-        sessaoAtual.push({ tipo: 'user', texto });
-
         // 3. Show Typing
         showTypingIndicator();
 
@@ -212,26 +177,6 @@ Você DEVE retornar sua resposta APENAS no formato JSON, sem crase ou markdown (
         if (resultado) {
             const formattedContent = formatResponse(resultado);
             appendMessage(formattedContent, 'ai');
-
-            // Guarda resposta da IA na sessão atual (texto resumido)
-            const resumoAI = `[Nível ${resultado.nivel}] ${resultado.resumo}`;
-            sessaoAtual.push({ tipo: 'ai', texto: resumoAI });
-
-            // 7. SALVA NO SUPABASE (Persistência real com sintomas)
-            await chatService.saveInteraction(texto, resumoAI, resultado.sintomas);
-        }
-
-        // 8. Salva sessão no histórico local (Cache)
-        salvarSessaoNoHistorico(sessaoAtual);
-
-        // 8. Salva a última triagem para uso no Pré-Prontuário
-        if (resultado) {
-            const dadosTriagem = {
-                textoUsuario: texto,
-                resultadoIA: resultado,
-                timestamp: Date.now()
-            };
-            localStorage.setItem('ultimaTriagemIA', JSON.stringify(dadosTriagem));
         }
     }
 

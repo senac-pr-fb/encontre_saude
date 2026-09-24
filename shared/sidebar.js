@@ -1,10 +1,7 @@
 import { ROUTES } from "../config/routes/routes.js";
 import { createTelegramWidget } from "./telegram_widget.js";
-import { authService } from "../Services/authService.js";
 
 export async function createSidebar() {
-    const { session } = await authService.getUserSession();
-
     const header = document.getElementById("header");
     if (!header) return;
 
@@ -29,13 +26,6 @@ export async function createSidebar() {
         { text: "Farmácias", icon: "fa-prescription-bottle-medical", href: ROUTES.farmacia },
     ];
 
-    // Se estiver logado, mostra Perfil. Se não, mostra Login.
-    if (session) {
-        navItems.push({ text: "Meu Perfil", icon: "fa-user", href: ROUTES.perfil });
-    } else {
-        navItems.push({ text: "Login / Cadastro", icon: "fa-arrow-right-to-bracket", href: ROUTES.login });
-    }
-
     navItems.forEach(({ text, icon, href }) => {
         const a = document.createElement("a");
         a.href = href;
@@ -48,20 +38,13 @@ export async function createSidebar() {
     });
     sidebar.appendChild(navList);
 
-    // Ouvir mudanças de auth para atualizar o menu em tempo real
-    authService.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_OUT') {
-            window.location.href = ROUTES.home;
-        }
-    });
-
     const footerContacts = document.createElement("div");
     footerContacts.className = "sidebar-footer";
 
     const contactItems = [
         { icon: "fa-brands fa-whatsapp", href: "https://wa.me/46991213122" },
         { icon: "fa-solid fa-phone", href: "tel:+5546991213122" },
-        { icon: "fa-solid fa-envelope", href: "mailto:seuemail@gabrielwag971@gmail.com" },
+        { icon: "fa-solid fa-envelope", href: "mailto:gabrielwag971@gmail.com" },
     ];
 
     contactItems.forEach(({ icon, href }) => {
