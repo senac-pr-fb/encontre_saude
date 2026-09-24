@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { colors, fonts, fontSizes, radius, spacing } from '@presentation/theme';
 
@@ -10,97 +9,86 @@ interface Props {
 }
 
 /**
- * O embed precisa de uma origem válida: carregar a URL direto na WebView não
- * manda referer, e o YouTube responde "Video player configuration error".
- * Por isso servimos o <iframe> como HTML com `baseUrl` no domínio do YouTube.
+ * Capa do vídeo que abre o YouTube ao toque.
+ *
+ * Antes isto era um player embutido numa WebView, como o <iframe> do site. Não
+ * funcionou: vários destes vídeos têm reprodução restrita fora do YouTube e o
+ * player respondia "Este vídeo não está disponível — erro 152". Pior, esse erro
+ * é desenhado *dentro* do iframe, então o app não tinha como detectá-lo e
+ * mostrar algo melhor.
+ *
+ * A miniatura não sofre a restrição (é uma imagem pública), e o app do YouTube
+ * reproduz sem limitação. Some a WebView do bundle e o usuário ganha tela
+ * cheia, controle de qualidade e legendas de verdade.
  */
-const paginaDoPlayer = (id: string) => `<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <style>
-      html, body { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; }
-      iframe { border: 0; width: 100%; height: 100%; }
-    </style>
-  </head>
-  <body>
-    <iframe
-      src="https://www.youtube.com/embed/${id}?playsinline=1&rel=0&modestbranding=1&autoplay=1"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowfullscreen
-    ></iframe>
-  </body>
-</html>`;
-
 export function VideoYouTube({ id }: Props) {
-  const [tocando, setTocando] = useState(false);
-  const [falhou, setFalhou] = useState(false);
-
-  const abrirNoYouTube = () => Linking.openURL(`https://www.youtube.com/watch?v=${id}`);
+  const [semCapa, setSemCapa] = useState(false);
+  const abrir = () => Linking.openURL(`https://www.youtube.com/watch?v=${id}`);
 
   return (
-    <View style={styles.bloco}>
-      {falhou ? (
-        <Pressable style={[styles.moldura, styles.centro]} onPress={abrirNoYouTube}>
-          <FontAwesome6 name="youtube" size={28} color={colors.error} />
-          <Text style={styles.aviso}>Não foi possível carregar o vídeo aqui.</Text>
-        </Pressable>
-      ) : !tocando ? (
-        // A WebView só nasce depois do toque: o acordeão abre vários tópicos,
-        // e nove players vivos consumiriam memória à toa.
-        <Pressable
-          style={[styles.moldura, styles.centro]}
-          onPress={() => setTocando(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Assistir ao vídeo demonstrativo"
-        >
-          <FontAwesome6 name="circle-play" size={36} color={colors.white} />
-          <Text style={styles.rotulo}>Assistir demonstração</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.moldura}>
-          <WebView
-            source={{ html: paginaDoPlayer(id), baseUrl: 'https://www.youtube.com' }}
-            originWhitelist={['*']}
-            style={styles.web}
-            javaScriptEnabled
-            domStorageEnabled
-            allowsFullscreenVideo
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            startInLoadingState
-            renderLoading={() => (
-              <View style={[styles.moldura, styles.centro]}>
-                <ActivityIndicator color={colors.white} />
-              </View>
-            )}
-            onError={() => setFalhou(true)}
-            onHttpError={() => setFalhou(true)}
-          />
-        </View>
+    <Pressable
+      onPress={abrir}
+      style={styles.moldura}
+      accessibilityRole="button"
+      accessibilityLabel="Assistir ao vídeo demonstrativo no YouTube"
+    >
+      {semCapa ? null : (
+        <Image
+          source={{ uri: `https://img.youtube.com/vi/${id}/hqdefault.jpg` }}
+          style={styles.capa}
+          resizeMode="cover"
+          onError={() => setSemCapa(true)}
+        />
       )}
 
-      {/* Saída sempre disponível: o erro do YouTube aparece dentro do iframe e não dispara onError. */}
-      <Pressable onPress={abrirNoYouTube} hitSlop={6} style={styles.linkLinha}>
-        <FontAwesome6 name="up-right-from-square" size={11} color={colors.greenMedium} />
-        <Text style={styles.link}>Abrir no YouTube</Text>
-      </Pressable>
-    </View>
+      <View style={styles.sobreposicao}>
+        <View style={styles.botao}>
+          <FontAwesome6 name="play" size={18} color={colors.white} />
+        </View>
+        <View style={styles.rodape}>
+          <FontAwesome6 name="youtube" size={13} color={colors.white} />
+          <Text style={styles.rotulo}>Assistir no YouTube</Text>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  bloco: { gap: spacing.xs },
   moldura: {
-    height: 200,
+    height: 190,
     borderRadius: radius.sm,
     overflow: 'hidden',
     backgroundColor: colors.blackDark,
+    justifyContent: 'center',
   },
-  centro: { alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  web: { flex: 1, backgroundColor: colors.blackDark },
-  rotulo: { fontFamily: fonts.medium, fontSize: fontSizes.sm, color: colors.white },
-  aviso: { fontFamily: fonts.regular, fontSize: fontSizes.xs, color: colors.grayLight, textAlign: 'center' },
-  linkLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, alignSelf: 'flex-end' },
-  link: { fontFamily: fonts.medium, fontSize: fontSizes.xs, color: colors.greenMedium },
+  capa: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  sobreposicao: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Escurece a miniatura para o botão e o rótulo terem contraste garantido.
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  botao: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 4,
+  },
+  rodape: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  rotulo: { fontFamily: fonts.medium, fontSize: fontSizes.xs, color: colors.white },
 });

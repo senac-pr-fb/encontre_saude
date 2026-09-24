@@ -772,7 +772,9 @@ match /pharmacies/{doc} {
 - `FarmaciaCard.tsx` — nome, endereço, telefone (`Linking.openURL('tel:…')`), site, Instagram, horário, bairro, botão **Ver rota** → `Linking.openURL('https://www.google.com/maps/dir/?api=1&destination=lat,lng')`.
 - Filtros: `TextInput` de busca, `Picker`/`ActionSheet` de bairro, dois `Switch` (municipal/privada) — mesmo comportamento do site (ambos ligados por padrão; ambos desligados = lista vazia).
 
-> `react-native-maps` no Android exige uma chave do Google Maps em `app.json` (`android.config.googleMaps.apiKey`). Essa chave é pública por natureza — restrinja-a ao package do app no console do Google Cloud.
+> **Chave do Maps.** No Expo Go o mapa usa a chave da própria Expo; num build é preciso a sua, em `android.config.googleMaps.apiKey` — que o `app.config.js` preenche a partir do `.env`, para não versionar a chave num repositório público. Restrinja-a no Google Cloud a *Android apps* (package + SHA-1) e à API *Maps SDK for Android*.
+
+> **Mapa preto no Android.** Aplicar `borderRadius` + `overflow: 'hidden'` **no próprio `MapView`** faz a superfície renderizar preta, com só a marca d'água do Google por cima — e isso só aparece em build, nunca no Expo Go. O arredondamento vai num `View` em volta; o `MapView` fica com `flex: 1` e nada mais. Sintoma parecido, causa diferente: mapa **cinza** costuma ser chave inválida ou *Maps SDK for Android* não habilitada, e aí o `adb logcat` mostra `Authorization failure`.
 
 **Pronto quando:** o mapa mostra as farmácias do banco; busca, bairro e tipo filtram lista e marcadores em sincronia.
 
@@ -819,9 +821,11 @@ Resultado: **9 tópicos** de primeiros socorros (cada um com seu vídeo), **10 d
 ### Telas
 
 - **Primeiros socorros:** acordeão por tópico (`LayoutAnimation` para a expansão), ícone por assunto (`lungs`, `heart-pulse`, `fire`…), a dica rotativa do site (troca a cada 10 s, igual ao `setInterval` do original) e uma faixa de **telefones de emergência** que liga direto — SAMU 192, Bombeiros 193 e CIAT 0800 722 6001, que no site aparecem só no meio do texto.
-- **Vídeos:** os tópicos têm vídeos do YouTube, que no site são `<iframe>` e aqui viram `react-native-webview` (já incluída no Expo Go, dispensa development build). O campo `video` guarda só o id; a URL de embed se monta na hora. A WebView só é criada **depois do toque no play** — nove WebViews vivas numa lista consumiriam memória à toa, já que o acordeão permite abrir vários tópicos.
+- **Vídeos:** os tópicos têm vídeos do YouTube, que no site são `<iframe>`. No app viraram **capa + abrir no YouTube**, não player embutido — o motivo está abaixo. O campo `video` guarda só o id; a URL se monta na hora.
 
-> **Duas armadilhas do embed.** Carregar a URL do embed direto em `source={{ uri }}` faz o YouTube responder *"Video player configuration error"*: a WebView não manda referer, e o player exige origem válida. A saída é servir o `<iframe>` como HTML com `baseUrl: 'https://www.youtube.com'`. E como esse erro é renderizado **dentro** do iframe, ele não dispara `onError` — por isso o card mantém sempre um link "Abrir no YouTube" visível, em vez de depender só do tratamento de falha.
+> **Por que o player embutido foi abandonado.** Primeiro veio *"Video player configuration error"*, porque a WebView carregada por `uri` não manda referer e o player exige origem válida — resolvido servindo o `<iframe>` como HTML com `baseUrl: 'https://www.youtube.com'`. Aí apareceu o problema real: num aparelho, vários vídeos respondem *"Este vídeo não está disponível — erro 152"*, porque o dono restringiu a reprodução fora do YouTube. E esse erro é desenhado **dentro** do iframe, então o app não tem como detectá-lo e mostrar algo melhor.
+>
+> A saída foi trocar o player por uma **capa que abre o app do YouTube**: a miniatura (`img.youtube.com/vi/<id>/hqdefault.jpg`) não sofre restrição, o app do YouTube reproduz sem limite, e a dependência `react-native-webview` saiu do projeto. O usuário ainda ganha tela cheia e legendas de verdade.
 
 > **Um vídeo do site está morto:** `JttAYDeuSyg` (Transporte de vítimas) foi removido do YouTube — o oEmbed responde 404. Ficou como `video: null` até surgir um link novo; no site ele ainda aparece como player quebrado. Vale conferir os demais de tempos em tempos com `https://www.youtube.com/oembed?url=...&format=json`.
 - **Prevenção:** mesmo acordeão, com a imagem de capa de cada tópico. As imagens são links externos (Google/gstatic) herdados do site: se falharem, o `onError` esconde a capa e o texto continua.
@@ -1150,7 +1154,7 @@ O site **ainda chama o Gemini direto do navegador**, então a `VITE_API_KEY` con
 | `farmacias_pages/js/create_bairros.js` | `bairrosDe()` derivado da lista + `BairroPicker` |
 | `primeiro_socorros_pages/js/dicas.js` + `init_primeiros_socorros.js` (HTML em string) | `data/static/primeirosSocorros.ts` — blocos tipados, renderizados por `components/features/conteudo/` |
 | `prevencao_pages/js/info_prevencao.js` | `data/static/prevencao.ts` |
-| `<iframe>` do YouTube em `init_primeiros_socorros.js` | `components/features/conteudo/VideoYouTube.tsx` (`react-native-webview`) |
+| `<iframe>` do YouTube em `init_primeiros_socorros.js` | `components/features/conteudo/VideoYouTube.tsx` (capa que abre o app do YouTube) |
 | `pre_prontuario_pages/pre_prontuario.js` | `app/pre-prontuario.tsx` + `PreProntuarioForm` |
 | `window.print()` / jsPDF | `expo-print` (HTML → PDF) + `expo-sharing` |
 | `window.location.href = …` | `router.push()` / `<Redirect>` |
@@ -1174,5 +1178,4 @@ O site **ainda chama o Gemini direto do navegador**, então a `VITE_API_KEY` con
 | `@expo-google-fonts/outfit` | Fonte do site |
 | `expo-sharing` | Compartilhar pré-prontuário |
 | `expo-print` | PDF do pré-prontuário (substitui o jsPDF do site) |
-| `react-native-webview` | Vídeos do YouTube nos primeiros socorros |
 | `jest` + `@testing-library/react-native` | Testes (`domain/` testa sem mocks) |
