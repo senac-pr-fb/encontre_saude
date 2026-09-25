@@ -4,21 +4,21 @@ export function initPrimeirosSocorros() {
     {
       title: 'Engasgo',
       content: `
-      <b><p>1. Engasgamento leve </b>
+      <p><b>1. Engasgamento leve</b></p>
       <p> Os primeiros socorros para engasgamento leve são:
       <p><b>-</b> Pedir para a pessoa tossir 5 vezes com força;
       <p><b>-</b> Bater 5 vezes no meio das costas, mantendo a mão aberta e num movimento rápido de baixo para cima.
-      <p><b>-</b> Durante o engasgamento leve, a pessoa é capaz de tossir, falar ou chorar, pois as vias aéreas estão parcialmente obstruídas, 
+      <p><b>-</b> Durante o engasgamento leve, a pessoa é capaz de tossir, falar ou chorar, pois as vias aéreas estão parcialmente obstruídas,
       e essas medidas podem ajudar a eliminar o objeto ou o alimento preso nas vias aéreas.
-      
-      <b><p>2. Engasgamento grave </b>
+
+      <p><b>2. Engasgamento grave</b></p>
       <p>Os primeiros socorros para engasgamento grave é fazer a manobra de Heimlich, que consiste em:
-      <p><b>-</b> Ficar em pé atrás da vítima, que também deve estar em pé, como mostra o passo 1 da imagem;
+      <p><b>-</b> Ficar em pé atrás da vítima, que também deve estar em pé, como mostrado no vídeo ao lado;
       <p><b>-</b> Passar os braços em volta do tronco da pessoa;
       <p><b>-</b> Fechar a mão que tem mais força, com o polegar para baixo;
-      <p><b>-</b> Posicionar a mão fechada na região superior do abdômen ou "boca do estômago", que fica entre as costelas, como mostra o passo 2 da imagem;
+      <p><b>-</b> Posicionar a mão fechada na região superior do abdômen ou "boca do estômago", que fica entre as costelas;
       <p><b>-</b> Colocar a outra mão sobre a mão que tem o punho cerrado;
-      <p><b>-</b> Fazer pressão com as mãos contra o estômago da pessoa, para dentro e para cima, como se fosse desenhar uma vírgula, como mostra o passo 3 da imagem.
+      <p><b>-</b> Fazer pressão com as mãos contra o estômago da pessoa, para dentro e para cima, como se fosse desenhar uma vírgula.
       <p><b>-</b> Essa manobra pode ser feita quando a técnica para engasgamento leve não teve resultado ou quando as vias aéreas estão completamente obstruídas, que pode ser identificada quando a pessoa não consegue tossir, falar ou chorar.
       `
 
@@ -105,7 +105,7 @@ export function initPrimeirosSocorros() {
     {
       title: 'Afogamento',
       content: `
-      <b> Para realizar os primeiros socorros para convulsão, deve-se:</b>
+      <b> Para realizar os primeiros socorros para afogamento, deve-se:</b>
       <p><b>-</b> Pedir ajuda para outra pessoa que esteja próxima ao local, para que ambas possam seguir com o socorro;
       <p><b>-</b> Ligar imediatamente para a ambulância dos bombeiros no 193, caso não seja possível, deve-se ligar para o SAMU no 192;
       <p><b>-</b> Fornecer algum material flutuante para a pessoa que está se afogando, como garrafas de plástico vazias, pranchas de surf ou materiais de isopor ou de espumas;
@@ -151,14 +151,14 @@ export function initPrimeirosSocorros() {
     {
       title: 'Fratura',
       content: `
-      <b> Para realizar os primeiros socorros para ferimentos, deve-se:</b>
+      <b> Para realizar os primeiros socorros para fraturas, deve-se:</b>
       <p><b>-</b> Manter o membro afetado em repouso, numa posição natural e confortável;
       <p><b>-</b> Não pressionar o local da fratura e verificar a cor do membro afetado para verificar se tem circulação sanguínea adequada;
       <p><b>-</b> Imobilizar as articulações que ficam acima e abaixo da lesão, com o uso de talas. Não havendo talas disponíveis, é possível improvisar com pedaços de papelão, revistas ou jornais dobrados ou pedaços de madeira, que devem ser acolchoadas com panos limpos e amarrados ao redor da articulação;
       <p><b>-</b> Lavar a região com soro fisiológico 0,9%, antes de imobilizar, no caso de fratura exposta;
-      <p><b>-</b> Cobrir o ferimento, no caso da fratura exposta, de preferência com gaze esterilizada ou um pano limpo. Se houver um sangramento muito intenso, é necessário fazer compressão acima da região fraturada para tentar impedir a saída do sangue. Saiba mais detalhes dos primeiros socorros em caso de fratura exposta;
+      <p><b>-</b> Cobrir o ferimento, no caso da fratura exposta, de preferência com gaze esterilizada ou um pano limpo. Se houver um sangramento muito intenso, é necessário fazer compressão acima da região fraturada para tentar impedir a saída do sangue;
       <p><b>-</b> Nunca tentar endireitar uma fratura ou colocar o osso no lugar;
-      <p><b>-</b> Não movimentar a vítima, até que o membro esteja seguro e o socorro chegue, a não ser que a pessoa tenha parada cardiorrespiratória. Nesses casos, deve-se movimentar a vítima o menos possível e como um todo, e iniciar a massagem cardíaca. Saiba como fazer a massagem cardíaca corretamente;
+      <p><b>-</b> Não movimentar a vítima, até que o membro esteja seguro e o socorro chegue, a não ser que a pessoa tenha parada cardiorrespiratória. Nesses casos, deve-se movimentar a vítima o menos possível e como um todo, e iniciar a massagem cardíaca (veja o tema "Massagem Cardíaca" nesta página);
       <p><b>-</b> Aguardar o auxílio médico. Caso não seja possível, recomenda-se levar a vítima para o pronto-socorro mais próximo.</p>`
     }
   ];
@@ -170,7 +170,7 @@ export function initPrimeirosSocorros() {
     Intoxicação: "https://www.youtube.com/embed/Pm3Iw3pxaS4",
     Afogamento: "https://www.youtube.com/embed/CiBaKoPl4IM",
     Queimadura: "https://www.youtube.com/embed/Klcs7ZmMOlE",
-    "Transporte de vítimas": "https://www.youtube.com/embed/JttAYDeuSyg",
+    "Transporte de vítimas": "https://www.youtube.com/embed/ID6guDdVg-U",
     Fratura: "https://www.youtube.com/embed/RT6th-_fbOo"
   };
 

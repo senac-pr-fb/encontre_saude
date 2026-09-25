@@ -12,7 +12,7 @@ export function infoPrevencao() {
       Deseja iniciar uma atividade física ou mudar hábitos alimentares.
       A prevenção é o melhor caminho. Marcar uma consulta regular com um clínico geral ou médico da família é um bom começo.
       `,
-      img: 'https://clinicagobbo.med.br/wp-content/uploads/2018/03/consulta-m%C3%A9dica.jpg'
+      img: 'https://images.unsplash.com/photo-1758691462878-6edc3d3da1be?fm=jpg&q=60&w=800&auto=format&fit=crop'
     },
     {
       title: 'Quais sinais e sintomas indicam uma pré-diabetes?',
@@ -20,14 +20,15 @@ export function infoPrevencao() {
       A pré-diabetes geralmente não apresenta sintomas claros, mas fique atento a possíveis sinais como:
       Sede excessiva e boca seca
       Urinar com frequência, especialmente à noite
-      Cansaço constante Visão embaçada ocasional
+      Cansaço constante
+      Visão embaçada ocasional
       Fome excessiva, mesmo após refeições
       Pequenas feridas que demoram a cicatrizar
       Se você tem histórico familiar de diabetes, está com sobrepeso ou tem estilo de vida sedentário, 
       vale a pena realizar exames de sangue regularmente, como: Glicemia em jejum
       Hemoglobina glicada
       `,
-      img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZ3SdQbFbb8XbzxpB03taS929YTL-g9jZ1BA&s'
+      img: 'https://images.unsplash.com/photo-1683727186226-910f31a9da45?fm=jpg&q=60&w=800&auto=format&fit=crop'
     },
     {
       title: 'Quais alimentos ajudam na saúde hoje em dia?',
@@ -46,21 +47,25 @@ export function infoPrevencao() {
         Planejar refeições evita escolhas impulsivas e mantém a variedade. Comer de forma consciente, mastigando devagar e prestando atenção 
         aos sinais de saciedade, transforma a alimentação em um ato de cuidado com o próprio corpo.
       `,
-      img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQbLbJv5MgAmjynfP3YspVt8STxdHSnmUbOGA&s'
+      img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?fm=jpg&q=60&w=800&auto=format&fit=crop'
     },
 
     {
-      title: ' Quais sinais e sintomas indicam a pressão alta (hipertensão)?',
+      title: 'Quais sinais e sintomas indicam a pressão alta (hipertensão)?',
       text: `
-        A hipertensão é conhecida como o "assassino silencioso", pois muitas vezes não causa sintomas. 
-        Quando aparecem, podem incluir:Dor de cabeça persistente (especialmente na nuca)
-        Tonturas ou sensação de peso na cabeça Zumbido nos ouvidos Visão turva ou embaçada
-        Falta de ar ou palpitações Sangramento nasal (em casos mais graves)
-        A única forma confiável de saber se você tem pressão alta é medindo regularmente — em casa ou em unidades de saúde. 
+        A hipertensão é conhecida como o "assassino silencioso", pois muitas vezes não causa sintomas.
+        Quando aparecem, podem incluir:
+        Dor de cabeça persistente (especialmente na nuca)
+        Tonturas ou sensação de peso na cabeça
+        Zumbido nos ouvidos
+        Visão turva ou embaçada
+        Falta de ar ou palpitações
+        Sangramento nasal (em casos mais graves)
+        A única forma confiável de saber se você tem pressão alta é medindo regularmente — em casa ou em unidades de saúde.
         Mesmo sem sintomas, é essencial manter acompanhamento médico.
 
       `,
-      img: 'https://tse2.mm.bing.net/th/id/OIP.iTQ0-GhfFZgO3V19Q70K2QHaE8?r=0&rs=1&pid=ImgDetMain&o=7&rm=3'
+      img: 'https://images.unsplash.com/photo-1631815584191-0ed1723f0ead?fm=jpg&q=60&w=800&auto=format&fit=crop'
     },
     {
       title: 'Dicas para manter a saúde mental em dia',
@@ -79,10 +84,10 @@ export function infoPrevencao() {
         Evitar consumo excessivo de álcool e outras substâncias protege o sistema nervoso.
         Por fim, lembrar que pedir ajuda não é sinal de fraqueza, mas de autocuidado e coragem.
       `,
-      img: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMAmvakjwASVCD39MiZ6i0DPd4fEJKAY4yRg&s'
+      img: 'https://images.unsplash.com/photo-1621887348744-6b0444f8a058?fm=jpg&q=60&w=800&auto=format&fit=crop'
     },
     {
-      title: ' Como proceder diante de uma mordida de animal?',
+      title: 'Como proceder diante de uma mordida de animal?',
       text: `
         Em caso de mordida, siga os seguintes passos:
         Lave imediatamente o local com água e sabão por pelo menos 5 minutos.
