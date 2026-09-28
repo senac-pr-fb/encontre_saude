@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { PREVENCAO } from '@data/static/prevencao';
+import { container } from '@core/di/container';
 import { Screen, Subtitle, Title } from '@presentation/components/ui';
 import { Acordeao } from '@presentation/components/features/conteudo/Acordeao';
 import { colors, fonts, fontSizes, radius } from '@presentation/theme';
@@ -11,7 +11,7 @@ export default function PrevencaoScreen() {
       <Title>Ações Preventivas</Title>
       <Subtitle>Hábitos e sinais de alerta para cuidar da saúde antes de adoecer.</Subtitle>
 
-      {PREVENCAO.map((topico) => (
+      {container.conteudo.prevencao.map((topico) => (
         <Acordeao key={topico.id} titulo={topico.titulo} icone="shield-heart">
           {topico.imagem ? <Capa uri={topico.imagem} /> : null}
           {topico.paragrafos.map((p, i) => (

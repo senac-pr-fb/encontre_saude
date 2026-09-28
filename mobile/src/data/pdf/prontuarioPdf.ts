@@ -2,6 +2,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as LegacyFS from 'expo-file-system/legacy';
 import type { PreProntuario } from '@domain/entities/PreProntuario';
+import type { PdfGerado, ProntuarioPdfService } from '@domain/services/ProntuarioPdfService';
 import { rotuloDoSintoma } from '@domain/entities/PreProntuario';
 import { dataParaBR, mascararCPF, mascararTelefone } from '@core/utils/formato';
 
@@ -119,11 +120,6 @@ function montarHtml(p: PreProntuario): string {
 </html>`;
 }
 
-export interface PdfGerado {
-  uri: string;
-  compartilhavel: boolean;
-}
-
 /**
  * Gera o arquivo e devolve o caminho local.
  *
@@ -181,3 +177,9 @@ export async function compartilharPdf(uri: string): Promise<void> {
     UTI: 'com.adobe.pdf',
   });
 }
+
+export const prontuarioPdfService: ProntuarioPdfService = {
+  gerar: gerarPdfProntuario,
+  imprimir: imprimirProntuario,
+  compartilhar: compartilharPdf,
+};

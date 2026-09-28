@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { ICONES_SOCORRO } from '@domain/entities/Conteudo';
-import { DICAS_RAPIDAS, PRIMEIROS_SOCORROS } from '@data/static/primeirosSocorros';
+import { container } from '@core/di/container';
 import { Screen, Subtitle, Title } from '@presentation/components/ui';
 import { Acordeao } from '@presentation/components/features/conteudo/Acordeao';
 import { Blocos } from '@presentation/components/features/conteudo/Blocos';
 import { Emergencias } from '@presentation/components/features/conteudo/Emergencias';
 import { VideoYouTube } from '@presentation/components/features/conteudo/VideoYouTube';
 import { colors, fonts, fontSizes, radius, spacing } from '@presentation/theme';
+const { dicasRapidas: DICAS_RAPIDAS, primeirosSocorros: PRIMEIROS_SOCORROS } = container.conteudo;
 
 const sorteia = () => Math.floor(Math.random() * DICAS_RAPIDAS.length);
 

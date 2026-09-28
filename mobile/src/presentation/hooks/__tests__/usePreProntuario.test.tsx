@@ -4,7 +4,6 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { container } from '@core/di/container';
 import { useAuth } from '@presentation/providers/AuthProvider';
-import { gerarPdfProntuario } from '@data/pdf/prontuarioPdf';
 import { usePreProntuario } from '../usePreProntuario';
 import { ok } from '@core/utils/result';
 import { perfilVazio, type PerfilSaude } from '@domain/entities/PerfilSaude';
@@ -17,16 +16,12 @@ jest.mock('@core/di/container', () => ({
       rascunho: { carregar: jest.fn(), salvar: jest.fn(), limpar: jest.fn() },
       triagemLocal: { recente: jest.fn(), registrar: jest.fn() },
       salvar: { execute: jest.fn() },
+      pdf: { gerar: jest.fn(), imprimir: jest.fn(), compartilhar: jest.fn() },
     },
     auth: { repo: { atualizarNome: jest.fn() } },
   },
 }));
 jest.mock('@presentation/providers/AuthProvider', () => ({ useAuth: jest.fn() }));
-jest.mock('@data/pdf/prontuarioPdf', () => ({
-  gerarPdfProntuario: jest.fn(),
-  imprimirProntuario: jest.fn(),
-  compartilharPdf: jest.fn(),
-}));
 
 function criarWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -110,7 +105,7 @@ describe('usePreProntuario — concluir', () => {
   it('salva a consulta, atualiza o nome quando mudou, gera o PDF e limpa o rascunho', async () => {
     (container.prontuario.salvar.execute as jest.Mock).mockResolvedValue(ok(undefined));
     (container.auth.repo.atualizarNome as jest.Mock).mockResolvedValue(ok(undefined));
-    (gerarPdfProntuario as jest.Mock).mockResolvedValue({ uri: 'file:///doc.pdf', compartilhavel: true });
+    (container.prontuario.pdf.gerar as jest.Mock).mockResolvedValue({ uri: 'file:///doc.pdf', compartilhavel: true });
 
     const { result } = await renderHook(() => usePreProntuario(), { wrapper: criarWrapper() });
     await waitFor(() => expect(result.current.iniciais).not.toBeNull());
@@ -121,13 +116,13 @@ describe('usePreProntuario — concluir', () => {
     await waitFor(() => expect(result.current.concluir.isSuccess).toBe(true));
     expect(container.prontuario.salvar.execute).toHaveBeenCalledWith('user-1', valores);
     expect(container.auth.repo.atualizarNome).toHaveBeenCalledWith('Nome Novo');
-    expect(gerarPdfProntuario).toHaveBeenCalledWith(valores);
+    expect(container.prontuario.pdf.gerar).toHaveBeenCalledWith(valores);
     expect(container.prontuario.rascunho.limpar).toHaveBeenCalledTimes(1);
   });
 
   it('não atualiza o nome quando ele não mudou em relação à conta', async () => {
     (container.prontuario.salvar.execute as jest.Mock).mockResolvedValue(ok(undefined));
-    (gerarPdfProntuario as jest.Mock).mockResolvedValue({ uri: 'file:///doc.pdf', compartilhavel: true });
+    (container.prontuario.pdf.gerar as jest.Mock).mockResolvedValue({ uri: 'file:///doc.pdf', compartilhavel: true });
 
     const { result } = await renderHook(() => usePreProntuario(), { wrapper: criarWrapper() });
     await waitFor(() => expect(result.current.iniciais).not.toBeNull());

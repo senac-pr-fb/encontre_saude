@@ -20,6 +20,9 @@ import { SupabaseTriagemRepository } from '@data/supabase/SupabaseTriagemReposit
 import { SupabaseProntuarioRepository } from '@data/supabase/SupabaseProntuarioRepository';
 import { criarRascunho, triagemLocal, CHAVE_RASCUNHO_PRONTUARIO } from '@data/local/armazenamentoLocal';
 import type { ProntuarioFormInput } from '@domain/usecases/prontuario';
+import { prontuarioPdfService } from '@data/pdf/prontuarioPdf';
+import { PREVENCAO } from '@data/static/prevencao';
+import { DICAS_RAPIDAS, PRIMEIROS_SOCORROS } from '@data/static/primeirosSocorros';
 import { FirestoreFarmaciaRepository } from '@data/firestore/FirestoreFarmaciaRepository';
 
 const authRepo = new SupabaseAuthRepository(supabase);
@@ -51,6 +54,13 @@ export const container = {
     salvar: new SalvarConsulta(prontuarioRepo, perfilRepo),
     rascunho: criarRascunho<ProntuarioFormInput>(CHAVE_RASCUNHO_PRONTUARIO),
     triagemLocal,
+    pdf: prontuarioPdfService,
+  },
+  /** Conteudo editorial estatico (nao vem de banco). */
+  conteudo: {
+    prevencao: PREVENCAO,
+    primeirosSocorros: PRIMEIROS_SOCORROS,
+    dicasRapidas: DICAS_RAPIDAS,
   },
   triagem: {
     realizar: new RealizarTriagem(triagemRepo, triagemLocal),
