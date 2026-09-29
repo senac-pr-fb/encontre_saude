@@ -132,6 +132,8 @@ function montarHtml(p: PreProntuario): string {
  * um modelo de permissões que recusa ler o arquivo do módulo de impressão
  * ("Missing 'READ' permission for accessing the file").
  */
+const PREFIXO_ARQUIVO = 'pre-prontuario-';
+
 export async function gerarPdfProntuario(p: PreProntuario): Promise<PdfGerado> {
   // base64 em vez do caminho: no Expo Go o arquivo impresso vai para
   // `cache/Print/`, fora da sandbox do app, e nem a API de arquivos nem o
@@ -142,7 +144,7 @@ export async function gerarPdfProntuario(p: PreProntuario): Promise<PdfGerado> {
 
   // documentDirectory, não cacheDirectory: é o que o expo-sharing reconhece
   // como legível ao checar as permissões do caminho no Android.
-  const destino = `${LegacyFS.documentDirectory}pre-prontuario-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const destino = `${LegacyFS.documentDirectory}${PREFIXO_ARQUIVO}${new Date().toISOString().slice(0, 10)}.pdf`;
 
   try {
     if (!base64) throw new Error('A impressão não devolveu o conteúdo do PDF.');
@@ -176,6 +178,33 @@ export async function compartilharPdf(uri: string): Promise<void> {
     dialogTitle: 'Pré-prontuário',
     UTI: 'com.adobe.pdf',
   });
+}
+
+/**
+ * Apaga os PDFs de pré-prontuário deixados no aparelho: as cópias em
+ * documentDirectory (que levam CPF e histórico clínico) e a saída bruta do
+ * expo-print em `cache/Print/`. Chamado no logout. Cada remoção é
+ * independente e silenciosa: o que não puder ser apagado não trava o logout.
+ */
+export async function limparPdfsGerados(): Promise<void> {
+  const pasta = LegacyFS.documentDirectory;
+  if (pasta) {
+    try {
+      const arquivos = await LegacyFS.readDirectoryAsync(pasta);
+      await Promise.all(
+        arquivos
+          .filter((nome) => nome.startsWith(PREFIXO_ARQUIVO) && nome.endsWith('.pdf'))
+          .map((nome) => LegacyFS.deleteAsync(`${pasta}${nome}`, { idempotent: true }).catch(() => undefined)),
+      );
+    } catch {
+      /* pasta ilegível: nada a apagar */
+    }
+  }
+
+  if (LegacyFS.cacheDirectory) {
+    // No Expo Go essa pasta fica fora da sandbox do app e a remoção falha; em build funciona.
+    await LegacyFS.deleteAsync(`${LegacyFS.cacheDirectory}Print`, { idempotent: true }).catch(() => undefined);
+  }
 }
 
 export const prontuarioPdfService: ProntuarioPdfService = {

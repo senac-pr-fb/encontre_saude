@@ -4,7 +4,10 @@ import { SupabaseAuthRepository } from '../SupabaseAuthRepository';
 import { AuthError } from '@domain/errors';
 
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }));
-jest.mock('expo-linking', () => ({ createURL: jest.fn((path: string) => `encontresaude://${path}`) }));
+jest.mock('expo-linking', () => ({
+  createURL: jest.fn((path: string) => `encontresaude://${path}`),
+  parse: jest.fn((url: string) => ({ path: new URL(url).pathname || null })),
+}));
 
 function criarUserFake(overrides: Partial<User> = {}): User {
   return { id: 'user-1', email: 'a@b.com', user_metadata: {}, app_metadata: {}, aud: 'authenticated', created_at: '' , ...overrides } as User;
@@ -24,6 +27,7 @@ function criarSupabaseFake() {
       startAutoRefresh: jest.fn(),
       stopAutoRefresh: jest.fn(),
       setSession: jest.fn(),
+      exchangeCodeForSession: jest.fn(),
     },
   } as unknown as SupabaseClient;
 }
@@ -209,72 +213,109 @@ describe('SupabaseAuthRepository.iniciarAutoRefresh / pararAutoRefresh', () => {
 });
 
 describe('SupabaseAuthRepository.restaurarSessaoDeLink', () => {
-  it('devolve erro quando a URL traz error_description', async () => {
+  it('devolve erro genérico quando a URL traz error_description, sem exibir o texto do link', async () => {
     const supabase = criarSupabaseFake();
-    const url = 'encontresaude://login?error_description=Link+expirado';
+    const url = 'encontresaude:///nova-senha?error_description=Ligue+para+0800+e+informe+sua+senha';
 
     const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink(url);
 
     expect(resultado.ok).toBe(false);
-    if (!resultado.ok) expect(resultado.error.message).toBe('Link expirado');
+    if (!resultado.ok) expect(resultado.error.message).toBe('Link inválido ou expirado. Solicite um novo.');
   });
 
-  it('devolve null quando a URL não traz tokens', async () => {
+  it('devolve null quando a URL não traz código', async () => {
     const supabase = criarSupabaseFake();
 
-    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink('encontresaude://login');
+    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink('encontresaude:///nova-senha');
+
+    expect(resultado).toEqual({ ok: true, value: null });
+    expect(supabase.auth.exchangeCodeForSession).not.toHaveBeenCalled();
+  });
+
+  it('ignora tokens soltos na URL: um link forjado não troca a sessão', async () => {
+    const supabase = criarSupabaseFake();
+    const url = 'encontresaude:///nova-senha#access_token=do-atacante&refresh_token=do-atacante&type=recovery';
+
+    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink(url);
 
     expect(resultado).toEqual({ ok: true, value: null });
     expect(supabase.auth.setSession).not.toHaveBeenCalled();
+    expect(supabase.auth.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 
-  it('restaura a sessão e identifica login a partir do fragmento da URL', async () => {
+  it('ignora links que não são o de recuperação (o retorno do OAuth é do signInWithGoogle)', async () => {
     const supabase = criarSupabaseFake();
-    (supabase.auth.setSession as jest.Mock).mockResolvedValue({ error: null });
-    const url = 'encontresaude://login#access_token=abc&refresh_token=def&type=login';
 
-    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink(url);
+    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink('encontresaude:///login?code=abc');
 
-    expect(supabase.auth.setSession).toHaveBeenCalledWith({ access_token: 'abc', refresh_token: 'def' });
-    expect(resultado).toEqual({ ok: true, value: 'login' });
+    expect(resultado).toEqual({ ok: true, value: null });
+    expect(supabase.auth.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 
-  it('identifica recuperação de senha quando type=recovery', async () => {
+  it('troca o código e identifica recuperação de senha', async () => {
     const supabase = criarSupabaseFake();
-    (supabase.auth.setSession as jest.Mock).mockResolvedValue({ error: null });
-    const url = 'encontresaude://nova-senha#access_token=abc&refresh_token=def&type=recovery';
+    (supabase.auth.exchangeCodeForSession as jest.Mock).mockResolvedValue({
+      data: { user: criarUserFake(), session: {}, redirectType: 'recovery' },
+      error: null,
+    });
 
-    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink(url);
+    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink(
+      'encontresaude:///nova-senha?code=abc',
+    );
 
+    expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('abc');
     expect(resultado).toEqual({ ok: true, value: 'recuperacao' });
   });
 
-  it('propaga o erro quando setSession falha', async () => {
+  it('recusa o link quando a troca falha (código sem o verifier deste aparelho)', async () => {
     const supabase = criarSupabaseFake();
-    (supabase.auth.setSession as jest.Mock).mockResolvedValue({ error: { message: 'sessão inválida' } });
-    const url = 'encontresaude://login#access_token=abc&refresh_token=def&type=login';
+    (supabase.auth.exchangeCodeForSession as jest.Mock).mockResolvedValue({
+      data: { user: null, session: null, redirectType: null },
+      error: { message: 'PKCE code verifier not found in storage' },
+    });
 
-    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink(url);
+    const resultado = await new SupabaseAuthRepository(supabase).restaurarSessaoDeLink(
+      'encontresaude:///nova-senha?code=forjado',
+    );
 
     expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error.message).toBe('Link inválido ou expirado. Solicite um novo.');
   });
 });
 
 describe('SupabaseAuthRepository.signInWithGoogle', () => {
-  it('completa o fluxo: abre o browser, restaura a sessão e devolve o usuário', async () => {
+  it('completa o fluxo: abre o browser, troca o código e devolve o usuário', async () => {
     const supabase = criarSupabaseFake();
     (supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({ data: { url: 'https://oauth.exemplo.com' }, error: null });
-    (supabase.auth.setSession as jest.Mock).mockResolvedValue({ error: null });
+    (supabase.auth.exchangeCodeForSession as jest.Mock).mockResolvedValue({
+      data: { user: criarUserFake(), session: {}, redirectType: null },
+      error: null,
+    });
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({ data: { session: { user: criarUserFake() } } });
     (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({
       type: 'success',
-      url: 'encontresaude://login#access_token=abc&refresh_token=def&type=login',
+      url: 'encontresaude:///login?code=abc',
     });
 
     const resultado = await new SupabaseAuthRepository(supabase).signInWithGoogle();
 
+    expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('abc');
     expect(resultado.ok).toBe(true);
     if (resultado.ok) expect(resultado.value).toEqual({ id: 'user-1', email: 'a@b.com', nome: null });
+  });
+
+  it('não aceita tokens soltos no retorno do OAuth', async () => {
+    const supabase = criarSupabaseFake();
+    (supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({ data: { url: 'https://oauth.exemplo.com' }, error: null });
+    (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValue({
+      type: 'success',
+      url: 'encontresaude:///login#access_token=abc&refresh_token=def',
+    });
+
+    const resultado = await new SupabaseAuthRepository(supabase).signInWithGoogle();
+
+    expect(supabase.auth.setSession).not.toHaveBeenCalled();
+    expect(resultado.ok).toBe(false);
   });
 
   it('retorna erro quando o Supabase falha ao iniciar o OAuth', async () => {

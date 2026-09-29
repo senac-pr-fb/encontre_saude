@@ -8,10 +8,19 @@ import { ok, err, type Result } from '@core/utils/result';
 import { usuarioMapper } from '@data/mappers/usuarioMapper';
 import { toAuthError } from './errors';
 
+const ROTA_LOGIN = '/login';
+const ROTA_NOVA_SENHA = '/nova-senha';
+
+// O texto de erro que vem na URL é controlado por quem montou o link: nunca exibir.
+const LINK_INVALIDO = 'Link inválido ou expirado. Solicite um novo.';
+
 /**
  * Tradução de frontend/Services/authService.js para o mobile.
  * Diferenças: OAuth abre o browser do sistema e volta por deep link (não há
  * window.location), e a recuperação de senha entra no app pelo link do e-mail.
+ *
+ * Os dois retornos usam PKCE (ver client.ts): o link traz um `code` que só vira
+ * sessão com o code verifier gravado neste aparelho quando o fluxo começou.
  */
 export class SupabaseAuthRepository implements AuthRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -40,7 +49,7 @@ export class SupabaseAuthRepository implements AuthRepository {
     // Ambas precisam estar em Authentication → URL Configuration → Redirect URLs.
     // Se não estiverem, o Supabase ignora este valor e redireciona para o Site URL
     // do projeto (o site na Vercel) — o browser abre a página e nunca volta ao app.
-    const redirectTo = Linking.createURL('/login');
+    const redirectTo = Linking.createURL(ROTA_LOGIN);
     if (__DEV__) console.log('[auth] redirectTo (autorize esta URL no Supabase):', redirectTo);
 
     const { data, error } = await this.supabase.auth.signInWithOAuth({
@@ -51,17 +60,20 @@ export class SupabaseAuthRepository implements AuthRepository {
 
     const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
     if (res.type !== 'success') {
+      // O detalhe de configuração só ajuda quem desenvolve; o usuário final vê a mensagem curta.
       return err(
         new AuthError(
-          `Login com Google não retornou ao app. Verifique se ${redirectTo} está em Authentication → URL Configuration → Redirect URLs no Supabase.`,
+          __DEV__
+            ? `Login com Google não retornou ao app. Verifique se ${redirectTo} está em Authentication → URL Configuration → Redirect URLs no Supabase.`
+            : 'O login com Google não foi concluído. Tente novamente.',
         ),
       );
     }
 
-    const restaurado = await this.restaurarSessaoDeLink(res.url);
-    if (!restaurado.ok) return restaurado;
+    const trocado = await this.trocarCodigo(res.url);
+    if (!trocado.ok) return trocado;
 
-    const usuario = await this.getUsuarioAtual();
+    const usuario = trocado.value ? await this.getUsuarioAtual() : null;
     return usuario ? ok(usuario) : err(new AuthError('Não foi possível concluir o login com Google'));
   }
 
@@ -79,7 +91,7 @@ export class SupabaseAuthRepository implements AuthRepository {
 
   async enviarRecuperacaoSenha(email: string): Promise<Result<void, AuthError>> {
     const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: Linking.createURL('/nova-senha'),
+      redirectTo: Linking.createURL(ROTA_NOVA_SENHA),
     });
     if (error) return err(toAuthError(error));
     return ok(undefined);
@@ -105,20 +117,50 @@ export class SupabaseAuthRepository implements AuthRepository {
     this.supabase.auth.stopAutoRefresh();
   }
 
+  /**
+   * Só o link de recuperação de senha passa por aqui. O retorno do OAuth é
+   * consumido pelo próprio signInWithGoogle (openAuthSessionAsync); tratá-lo
+   * também aqui gastaria duas vezes o mesmo código de uso único.
+   */
   async restaurarSessaoDeLink(url: string): Promise<Result<OrigemLink, AuthError>> {
+    if (!ehRota(url, ROTA_NOVA_SENHA)) return ok(null);
+
+    const trocado = await this.trocarCodigo(url);
+    if (!trocado.ok) return trocado;
+    if (!trocado.value) return ok(null);
+    return ok(trocado.value === 'recovery' ? 'recuperacao' : 'login');
+  }
+
+  /**
+   * Troca o `code` do link por uma sessão. Devolve o tipo do redirect
+   * ('recovery' para o e-mail de senha) ou null se a URL não trazia código.
+   *
+   * Tokens soltos na URL (#access_token=…, do fluxo implícito) são ignorados de
+   * propósito: aceitá-los deixaria qualquer link colocar o usuário numa conta
+   * que não é dele.
+   */
+  private async trocarCodigo(url: string): Promise<Result<string | null, AuthError>> {
     const params = parseParams(url);
-    if (params.error_description) return err(new AuthError(params.error_description));
+    if (params.error || params.error_description) return err(new AuthError(LINK_INVALIDO));
+    if (!params.code) return ok(null);
 
-    const { access_token, refresh_token, type } = params;
-    if (!access_token || !refresh_token) return ok(null);
-
-    const { error } = await this.supabase.auth.setSession({ access_token, refresh_token });
-    if (error) return err(toAuthError(error));
-    return ok(type === 'recovery' ? 'recuperacao' : 'login');
+    const { data, error } = await this.supabase.auth.exchangeCodeForSession(params.code);
+    // Sem o code verifier (link que não nasceu neste aparelho) a troca falha aqui.
+    if (error) return err(new AuthError(LINK_INVALIDO));
+    // O auth-js devolve `redirectType` ('recovery' quando o verifier nasceu no
+    // resetPasswordForEmail), mas não o declara no tipo de retorno.
+    const { redirectType } = data as { redirectType?: string | null };
+    return ok(redirectType ?? 'login');
   }
 }
 
-/** O Supabase devolve os tokens no fragmento (#a=b) ou na query (?a=b); lê os dois. */
+/** Compara só o caminho do link (ignora esquema, host do Expo Go e parâmetros). */
+function ehRota(url: string, rota: string): boolean {
+  const semBarras = (s: string) => s.replace(/^\/+|\/+$/g, '');
+  return semBarras(Linking.parse(url).path ?? '') === semBarras(rota);
+}
+
+/** O Supabase devolve os parâmetros no fragmento (#a=b) ou na query (?a=b); lê os dois. */
 function parseParams(url: string): Record<string, string> {
   const out: Record<string, string> = {};
   const [semFragmento, fragmento] = url.split('#');

@@ -1,5 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { criarRascunho, triagemLocal, CHAVE_RASCUNHO_PRONTUARIO } from '../armazenamentoLocal';
+import {
+  criarRascunho,
+  triagemLocal,
+  recuperacaoSenhaLocal,
+  limparDadosLocais,
+  CHAVE_RASCUNHO_PRONTUARIO,
+} from '../armazenamentoLocal';
 import { VALIDADE_TRIAGEM_MS } from '@domain/entities/PreProntuario';
 
 beforeEach(async () => {
@@ -74,5 +80,40 @@ describe('triagemLocal', () => {
     jest.spyOn(Date, 'now').mockReturnValueOnce(agora);
 
     expect(await triagemLocal.recente()).toBeNull();
+  });
+});
+
+describe('recuperacaoSenhaLocal', () => {
+  it('começa inativa, pode ser marcada e depois limpa', async () => {
+    expect(await recuperacaoSenhaLocal.ativa()).toBe(false);
+
+    await recuperacaoSenhaLocal.marcar();
+    expect(await recuperacaoSenhaLocal.ativa()).toBe(true);
+
+    await recuperacaoSenhaLocal.limpar();
+    expect(await recuperacaoSenhaLocal.ativa()).toBe(false);
+  });
+});
+
+describe('limparDadosLocais', () => {
+  it('apaga rascunho, última triagem e marca de recuperação, sem tocar em outras chaves', async () => {
+    await criarRascunho(CHAVE_RASCUNHO_PRONTUARIO).salvar({ cpf: '12345678901' });
+    await triagemLocal.registrar({ textoUsuario: 'febre', nivel: 3, resumo: 'r', recomendacao: 'rec' });
+    await recuperacaoSenhaLocal.marcar();
+    await AsyncStorage.setItem('sb-projeto-auth-token', 'sessao');
+
+    await limparDadosLocais();
+
+    expect(await criarRascunho(CHAVE_RASCUNHO_PRONTUARIO).carregar()).toBeNull();
+    expect(await triagemLocal.recente()).toBeNull();
+    expect(await recuperacaoSenhaLocal.ativa()).toBe(false);
+    // A sessão é do supabase-js; quem a remove é o signOut.
+    expect(await AsyncStorage.getItem('sb-projeto-auth-token')).toBe('sessao');
+  });
+
+  it('não lança quando o storage falha', async () => {
+    jest.spyOn(AsyncStorage, 'multiRemove').mockRejectedValueOnce(new Error('indisponível'));
+
+    await expect(limparDadosLocais()).resolves.toBeUndefined();
   });
 });

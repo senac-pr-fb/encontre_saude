@@ -53,13 +53,18 @@ describe('listarColecao', () => {
     if (!resultado.ok) expect(resultado.error.code).toBe('FIRESTORE_PERMISSION');
   });
 
-  it('retorna erro genérico para outros status de falha', async () => {
-    globalThis.fetch = jest.fn().mockResolvedValue(respostaFetch(500, { error: { message: 'erro interno' } }));
+  it('retorna erro genérico para outros status de falha, sem expor a mensagem do Google', async () => {
+    globalThis.fetch = jest
+      .fn()
+      .mockResolvedValue(respostaFetch(500, { error: { message: 'Project encontre-saude-123 quota exceeded' } }));
 
     const resultado = await listarColecao('pharmacies');
 
     expect(resultado.ok).toBe(false);
-    if (!resultado.ok) expect(resultado.error.message).toBe('erro interno');
+    if (!resultado.ok) {
+      expect(resultado.error.code).toBe('FIRESTORE');
+      expect(resultado.error.message).toBe('Não foi possível carregar as farmácias agora');
+    }
   });
 
   it('retorna NetworkError quando o fetch lança exceção', async () => {

@@ -27,6 +27,21 @@ export interface AuthRepository {
   /** Renovação do token só com o app em primeiro plano (o Supabase recomenda para RN). */
   iniciarAutoRefresh(): void;
   pararAutoRefresh(): void;
-  /** Consome tokens vindos num deep link. Retorna null se a URL não trazia sessão. */
+  /**
+   * Consome o código de um link de recuperação de senha (PKCE). Retorna null se a
+   * URL não era desse link ou não trazia código. Links que não nasceram de um
+   * pedido feito neste aparelho são recusados.
+   */
   restaurarSessaoDeLink(url: string): Promise<Result<OrigemLink, AuthError>>;
+}
+
+/**
+ * Marca, no aparelho, que a sessão atual veio do link de recuperação e a senha
+ * ainda não foi trocada. Enquanto ativa, o app só mostra a tela de nova senha;
+ * sobreviver a um reinício impede que fechar o app libere o acesso completo.
+ */
+export interface RecuperacaoSenhaRepository {
+  ativa(): Promise<boolean>;
+  marcar(): Promise<void>;
+  limpar(): Promise<void>;
 }

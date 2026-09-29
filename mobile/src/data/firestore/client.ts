@@ -49,13 +49,16 @@ export async function listarColecao(colecao: string): Promise<Result<FirestoreDo
 
       const res = await fetch(url.toString());
       if (!res.ok) {
-        const corpo = await res.json().catch(() => null);
-        const msg = corpo?.error?.message ?? `Erro ${res.status} ao consultar o Firestore`;
+        // A mensagem crua do Google (projeto, regras, cota) fica só no log de desenvolvimento.
+        if (__DEV__) {
+          const corpo = await res.json().catch(() => null);
+          console.log('[firestore] erro', res.status, corpo?.error?.message);
+        }
         // Regras do Firestore negando leitura pública
         if (res.status === 403) {
           return err(new DomainError('Sem permissão para ler as farmácias', 'FIRESTORE_PERMISSION'));
         }
-        return err(new DomainError(msg, 'FIRESTORE'));
+        return err(new DomainError('Não foi possível carregar as farmácias agora', 'FIRESTORE'));
       }
 
       const json: RespostaLista = await res.json();

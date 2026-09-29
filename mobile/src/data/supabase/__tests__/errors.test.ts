@@ -28,10 +28,15 @@ describe('toAuthError', () => {
     expect(erro).toBeInstanceOf(NetworkError);
   });
 
-  it('devolve a mensagem original quando não há tradução conhecida', () => {
-    const erro = toAuthError({ message: 'Erro desconhecido do Supabase' });
+  it('devolve mensagem genérica quando não há tradução conhecida, sem expor o texto do Supabase', () => {
+    const erro = toAuthError({ message: 'Database error saving new user: relation "profiles" does not exist' });
     expect(erro).toBeInstanceOf(AuthError);
-    expect(erro.message).toBe('Erro desconhecido do Supabase');
+    expect(erro.message).toBe('Não foi possível concluir a operação. Tente novamente.');
+  });
+
+  it('traduz senha fraca', () => {
+    const erro = toAuthError({ message: 'Password is known to be weak and easy to guess' });
+    expect(erro.message).toBe('Escolha uma senha mais forte');
   });
 });
 
@@ -41,11 +46,14 @@ describe('toDomainError', () => {
     expect(erro).toBeInstanceOf(NetworkError);
   });
 
-  it('usa o código informado quando presente', () => {
-    const erro = toDomainError({ message: 'linha não encontrada', code: 'PGRST116' });
+  it('mantém o código informado, mas troca o texto cru por mensagem genérica', () => {
+    const erro = toDomainError({
+      message: 'new row violates row-level security policy for table "dados_saude"',
+      code: '42501',
+    });
     expect(erro).toBeInstanceOf(DomainError);
-    expect(erro.code).toBe('PGRST116');
-    expect(erro.message).toBe('linha não encontrada');
+    expect(erro.code).toBe('42501');
+    expect(erro.message).toBe('Não foi possível acessar seus dados agora. Tente novamente.');
   });
 
   it('usa o código SUPABASE quando nenhum código é informado', () => {

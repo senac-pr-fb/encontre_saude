@@ -4,6 +4,7 @@ import { PerfilForm } from '@presentation/components/features/perfil/PerfilForm'
 import { useAuth } from '@presentation/providers/AuthProvider';
 import { useAuthActions } from '@presentation/hooks/useAuthActions';
 import { usePerfil } from '@presentation/hooks/usePerfil';
+import { useTelaProtegida } from '@presentation/hooks/useTelaProtegida';
 import { perfilParaFormulario } from '@domain/usecases/perfil';
 import { colors, spacing } from '@presentation/theme';
 
@@ -11,6 +12,7 @@ export default function PerfilScreen() {
   const { usuario } = useAuth();
   const { signOut } = useAuthActions();
   const { perfil, existe, carregando, erroCarregar, salvar } = usePerfil();
+  useTelaProtegida('perfil');
 
   return (
     <Screen>

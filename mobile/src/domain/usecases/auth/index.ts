@@ -5,3 +5,4 @@ export * from './SignOut';
 export * from './SignInWithGoogle';
 export * from './RecuperarSenha';
 export * from './AtualizarSenha';
+export * from './LimparDadosLocais';

@@ -11,16 +11,31 @@
 import { supabase } from '@data/supabase/client';
 import { SupabaseAuthRepository } from '@data/supabase/SupabaseAuthRepository';
 import { SupabasePerfilRepository } from '@data/supabase/SupabasePerfilRepository';
-import { SignIn, SignUp, SignOut, SignInWithGoogle, RecuperarSenha, AtualizarSenha } from '@domain/usecases/auth';
+import {
+  SignIn,
+  SignUp,
+  SignOut,
+  SignInWithGoogle,
+  RecuperarSenha,
+  AtualizarSenha,
+  LimparDadosLocais,
+} from '@domain/usecases/auth';
+import type { LimpezaLocalService } from '@domain/services/LimpezaLocalService';
 import { GetPerfil, SavePerfil } from '@domain/usecases/perfil';
 import { ListarFarmacias } from '@domain/usecases/farmacias';
 import { SalvarConsulta } from '@domain/usecases/prontuario';
 import { RealizarTriagem, GetHistorico } from '@domain/usecases/triagem';
 import { SupabaseTriagemRepository } from '@data/supabase/SupabaseTriagemRepository';
 import { SupabaseProntuarioRepository } from '@data/supabase/SupabaseProntuarioRepository';
-import { criarRascunho, triagemLocal, CHAVE_RASCUNHO_PRONTUARIO } from '@data/local/armazenamentoLocal';
+import {
+  criarRascunho,
+  triagemLocal,
+  recuperacaoSenhaLocal,
+  limparDadosLocais,
+  CHAVE_RASCUNHO_PRONTUARIO,
+} from '@data/local/armazenamentoLocal';
 import type { ProntuarioFormInput } from '@domain/usecases/prontuario';
-import { prontuarioPdfService } from '@data/pdf/prontuarioPdf';
+import { prontuarioPdfService, limparPdfsGerados } from '@data/pdf/prontuarioPdf';
 import { PREVENCAO } from '@data/static/prevencao';
 import { DICAS_RAPIDAS, PRIMEIROS_SOCORROS } from '@data/static/primeirosSocorros';
 import { FirestoreFarmaciaRepository } from '@data/firestore/FirestoreFarmaciaRepository';
@@ -32,16 +47,26 @@ const farmaciaRepo = new FirestoreFarmaciaRepository();
 const prontuarioRepo = new SupabaseProntuarioRepository(supabase);
 const triagemRepo = new SupabaseTriagemRepository(supabase);
 
+// Logout: tudo o que o app deixou no aparelho (AsyncStorage + PDFs) sai junto.
+const limpezaLocal: LimpezaLocalService = {
+  limpar: async () => {
+    await Promise.all([limparDadosLocais(), limparPdfsGerados()]);
+  },
+};
+
 export const container = {
   auth: {
     /** Usado so pelo AuthProvider (sessao atual, eventos, deep links). */
     repo: authRepo,
+    /** Usado so pelo AuthProvider: sessao aberta pelo link de recuperacao de senha. */
+    recuperacao: recuperacaoSenhaLocal,
     signIn: new SignIn(authRepo),
     signUp: new SignUp(authRepo),
-    signOut: new SignOut(authRepo),
+    signOut: new SignOut(authRepo, limpezaLocal),
     signInWithGoogle: new SignInWithGoogle(authRepo),
     recuperarSenha: new RecuperarSenha(authRepo),
-    atualizarSenha: new AtualizarSenha(authRepo),
+    atualizarSenha: new AtualizarSenha(authRepo, recuperacaoSenhaLocal),
+    limparDadosLocais: new LimparDadosLocais(limpezaLocal),
   },
   perfil: {
     get: new GetPerfil(perfilRepo),

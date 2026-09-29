@@ -9,11 +9,14 @@ import { LegendaUrgencia } from '@presentation/components/features/triagem/Legen
 import { AvisoMedico, ChamarSamu } from '@presentation/components/features/triagem/AvisoMedico';
 import { HistoricoTriagem } from '@presentation/components/features/triagem/HistoricoTriagem';
 import { useTriagem } from '@presentation/hooks/useTriagem';
+import { useTelaProtegida } from '@presentation/hooks/useTelaProtegida';
 import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 
 export default function HomeScreen() {
   const [relato, setRelato] = useState('');
   const { analisar, historico, carregandoHistorico } = useTriagem();
+  // Relato de sintomas e histórico de triagens também são dados de saúde.
+  useTelaProtegida('triagem');
   const resultado = analisar.data ?? null;
 
   return (

@@ -1,14 +1,17 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as LegacyFS from 'expo-file-system/legacy';
-import { gerarPdfProntuario, imprimirProntuario, compartilharPdf } from '../prontuarioPdf';
+import { gerarPdfProntuario, imprimirProntuario, compartilharPdf, limparPdfsGerados } from '../prontuarioPdf';
 import type { PreProntuario } from '@domain/entities/PreProntuario';
 
 jest.mock('expo-print', () => ({ printToFileAsync: jest.fn(), printAsync: jest.fn() }));
 jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }));
 jest.mock('expo-file-system/legacy', () => ({
   documentDirectory: 'file:///documentos/',
+  cacheDirectory: 'file:///cache/',
   writeAsStringAsync: jest.fn(),
+  readDirectoryAsync: jest.fn(),
+  deleteAsync: jest.fn(),
   EncodingType: { Base64: 'base64' },
 }));
 
@@ -80,6 +83,35 @@ describe('imprimirProntuario', () => {
     await imprimirProntuario(preProntuario);
 
     expect(Print.printAsync).toHaveBeenCalledWith(expect.objectContaining({ html: expect.any(String) }));
+  });
+});
+
+describe('limparPdfsGerados', () => {
+  it('apaga só os PDFs de pré-prontuário e a pasta de saída do expo-print', async () => {
+    (LegacyFS.readDirectoryAsync as jest.Mock).mockResolvedValue([
+      'pre-prontuario-2026-09-01.pdf',
+      'pre-prontuario-2026-09-29.pdf',
+      'outro-arquivo.pdf',
+      'pre-prontuario-notas.txt',
+    ]);
+    (LegacyFS.deleteAsync as jest.Mock).mockResolvedValue(undefined);
+
+    await limparPdfsGerados();
+
+    const apagados = (LegacyFS.deleteAsync as jest.Mock).mock.calls.map(([uri]) => uri);
+    expect(apagados).toEqual([
+      'file:///documentos/pre-prontuario-2026-09-01.pdf',
+      'file:///documentos/pre-prontuario-2026-09-29.pdf',
+      'file:///cache/Print',
+    ]);
+    expect(LegacyFS.deleteAsync).toHaveBeenCalledWith(expect.any(String), { idempotent: true });
+  });
+
+  it('não lança quando a leitura ou a remoção falham', async () => {
+    (LegacyFS.readDirectoryAsync as jest.Mock).mockRejectedValue(new Error('sem permissão'));
+    (LegacyFS.deleteAsync as jest.Mock).mockRejectedValue(new Error('fora da sandbox'));
+
+    await expect(limparPdfsGerados()).resolves.toBeUndefined();
   });
 });
 

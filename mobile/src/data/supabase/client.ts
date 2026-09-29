@@ -48,6 +48,10 @@ export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
     storage: new LargeSecureStore(),
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // não existe URL no mobile; OAuth usa setSession explícito
+    detectSessionInUrl: false, // não existe URL no mobile; o app troca o código explicitamente
+    // PKCE: o link de volta (OAuth, e-mail de recuperação) traz só um código de uso
+    // único, que precisa do code verifier guardado NESTE aparelho para virar sessão.
+    // Um link forjado ou interceptado por outro app não serve para nada.
+    flowType: 'pkce',
   },
 });

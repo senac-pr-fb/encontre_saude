@@ -5,6 +5,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { Body, Button, Card, ErrorMessage, Screen, Subtitle, SuccessMessage, Title } from '@presentation/components/ui';
 import { ProntuarioForm } from '@presentation/components/features/prontuario/ProntuarioForm';
 import { usePreProntuario } from '@presentation/hooks/usePreProntuario';
+import { useTelaProtegida } from '@presentation/hooks/useTelaProtegida';
 import { ehExpoGo } from '@core/config/ambiente';
 import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 
@@ -13,6 +14,7 @@ export default function PreProntuarioScreen() {
   const { iniciais, triagem, rascunhoRestaurado, salvarRascunho, concluir, compartilhar, imprimir } =
     usePreProntuario();
   const [erroCompartilhar, setErroCompartilhar] = useState<string | null>(null);
+  useTelaProtegida('pre-prontuario');
 
   // Sem o catch, uma falha aqui viraria rejeição não capturada em vez de mensagem.
   const executar = async (acao: () => Promise<void>) => {

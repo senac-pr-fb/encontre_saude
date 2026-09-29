@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/outfit';
 import { QueryProvider } from '@presentation/providers/QueryProvider';
 import { AuthProvider, useAuth } from '@presentation/providers/AuthProvider';
+import { useProtecaoAlternadorApps } from '@presentation/hooks/useTelaProtegida';
 import { colors, fonts } from '@presentation/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -39,9 +40,11 @@ export default function RootLayout() {
 
 // REGRA: login obrigatório. Diferente do site, o app não tem área pública.
 // Único gate de rotas: sem sessão só (auth) existe; com sessão, (auth) some.
+// Sessão aberta pelo link de recuperação só enxerga a nova senha até trocá-la.
 function RootStack() {
-  const { usuario, carregando } = useAuth();
+  const { usuario, carregando, recuperandoSenha } = useAuth();
   const logado = usuario !== null;
+  useProtecaoAlternadorApps();
 
   useEffect(() => {
     if (!carregando) SplashScreen.hideAsync();
@@ -60,9 +63,11 @@ function RootStack() {
         headerShadowVisible: false,
       }}
     >
-      <Stack.Protected guard={logado}>
+      <Stack.Protected guard={logado && !recuperandoSenha}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="pre-prontuario" options={{ presentation: 'modal', headerShown: true, title: 'Pré-prontuário' }} />
+      </Stack.Protected>
+      <Stack.Protected guard={logado && recuperandoSenha}>
         <Stack.Screen name="nova-senha" options={{ headerShown: true, title: 'Nova senha' }} />
       </Stack.Protected>
       <Stack.Protected guard={!logado}>

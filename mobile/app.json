@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "br.com.encontresaude.app",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#E8F5E9",
         "foregroundImage": "./assets/android-icon-foreground.png",
