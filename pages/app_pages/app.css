@@ -57,13 +57,6 @@ body {
   margin-bottom: 1rem;
 }
 
-.hero-text h1 span {
-  background: linear-gradient(135deg, var(--green-dark) 0%, var(--green-medium) 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 .hero-text p {
   font-size: 1.1rem;
   color: var(--text-light);
@@ -130,47 +123,12 @@ body {
   margin-bottom: 2rem;
 }
 
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
-}
-
-.feature-card {
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid rgba(0, 0, 0, 0.03);
-  padding: 2rem 1.5rem;
-  transition: all var(--transition-normal);
-}
-
-.feature-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-lg);
-}
-
-.feature-card i {
-  font-size: 1.6rem;
-  color: var(--green-medium);
-  background: var(--green-accent);
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
-}
-
-.feature-card h3,
 .steps h3 {
   font-size: 1.15rem;
   color: var(--text-color);
   margin-bottom: 0.5rem;
 }
 
-.feature-card p,
 .steps p {
   color: var(--text-light);
   font-size: 0.95rem;
