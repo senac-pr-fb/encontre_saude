@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { container } from '@core/di/container';
 import { unwrap } from '@core/utils/result';
 import type { PreProntuario, TriagemRecente } from '@domain/entities/PreProntuario';
-import { FORMULARIO_VAZIO, type ProntuarioFormInput, type ProntuarioFormOutput } from '@domain/usecases/prontuario';
+import {
+  contextoParaFormulario,
+  type ProntuarioFormInput,
+  type ProntuarioFormOutput,
+} from '@domain/usecases/prontuario';
 import { useAuth } from '@presentation/providers/AuthProvider';
 import { usePerfil } from './usePerfil';
-import { dataParaBR } from '@core/utils/formato';
-
-const txt = (v: string | number | null | undefined) => (v === null || v === undefined ? '' : String(v));
 
 /**
  * Reúne as três automações do site:
@@ -21,6 +22,7 @@ const txt = (v: string | number | null | undefined) => (v === null || v === unde
  */
 export function usePreProntuario() {
   const { usuario } = useAuth();
+  const qc = useQueryClient();
   // `carregando` importa: enquanto a consulta não volta, `perfil` é um perfil
   // vazio, e montar o formulário com ele deixaria tudo em branco.
   const { perfil, carregando: perfilCarregando } = usePerfil();
@@ -39,24 +41,7 @@ export function usePreProntuario() {
         container.prontuario.triagemLocal.recente(),
       ]);
 
-      const doPerfil: ProntuarioFormInput = {
-        ...FORMULARIO_VAZIO,
-        nome: usuario.nome ?? '',
-        sexo: perfil?.sexo ?? FORMULARIO_VAZIO.sexo,
-        cpf: txt(perfil?.cpf),
-        dataNascimento: dataParaBR(perfil?.dataNascimento ?? null),
-        telefone: txt(perfil?.telefone),
-        peso: txt(perfil?.peso ?? null),
-        altura: txt(perfil?.altura ?? null),
-        alergias: txt(perfil?.alergias ?? null),
-        medicamentosEmUso: txt(perfil?.medicamentosEmUso ?? null),
-        doencasPreexistentes: txt(perfil?.doencasPreexistentes ?? null),
-        historicoFamiliar: txt(perfil?.historicoFamiliar ?? null),
-        pressaoArterial: txt(perfil?.sinaisVitais.pressaoArterial ?? null),
-        frequenciaCardiaca: txt(perfil?.sinaisVitais.frequenciaCardiaca ?? null),
-        temperatura: txt(perfil?.sinaisVitais.temperatura ?? null),
-        saturacaoOxigenio: txt(perfil?.sinaisVitais.saturacaoOxigenio ?? null),
-      };
+      const doPerfil = contextoParaFormulario(perfil, usuario.nome);
 
       const base = rascunho ? { ...doPerfil, ...rascunho } : doPerfil;
 
@@ -94,6 +79,11 @@ export function usePreProntuario() {
       await container.prontuario.rascunho.limpar();
       // O prontuario volta junto para permitir reimprimir sem refazer o formulario.
       return { pdf, prontuario };
+    },
+    // A consulta entrou no histórico e a ficha foi sincronizada: o contexto de saúde se recalcula.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['perfil', usuario?.id] });
+      qc.invalidateQueries({ queryKey: ['historico', usuario?.id] });
     },
   });
 
