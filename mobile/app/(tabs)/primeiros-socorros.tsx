@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { ICONES_SOCORRO } from '@domain/entities/Conteudo';
 import { container } from '@core/di/container';
-import { Screen, Subtitle, Title } from '@presentation/components/ui';
+import { Screen, Subtitle } from '@presentation/components/ui';
+import { CabecalhoAba } from '@presentation/components/features/navegacao/CabecalhoAba';
 import { Acordeao } from '@presentation/components/features/conteudo/Acordeao';
 import { Blocos } from '@presentation/components/features/conteudo/Blocos';
 import { Emergencias } from '@presentation/components/features/conteudo/Emergencias';
@@ -23,7 +24,7 @@ export default function PrimeirosSocorrosScreen() {
 
   return (
     <Screen>
-      <Title>Primeiros Socorros</Title>
+      <CabecalhoAba titulo="Primeiros Socorros" />
       <Subtitle>Orientações rápidas para situações de emergência.</Subtitle>
 
       <Emergencias />

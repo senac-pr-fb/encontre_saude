@@ -1,5 +1,5 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Body, Button, Card, ErrorMessage, Screen, Subtitle, Title } from '@presentation/components/ui';
+import { Body, Button, Card, ErrorMessage, Screen, Subtitle } from '@presentation/components/ui';
 import { PerfilForm } from '@presentation/components/features/perfil/PerfilForm';
 import { useAuth } from '@presentation/providers/AuthProvider';
 import { useAuthActions } from '@presentation/hooks/useAuthActions';
@@ -16,7 +16,6 @@ export default function PerfilScreen() {
 
   return (
     <Screen>
-      <Title>Meu Perfil</Title>
       {usuario?.nome ? <Body>{usuario.nome}</Body> : null}
       <Subtitle>{usuario?.email}</Subtitle>
 

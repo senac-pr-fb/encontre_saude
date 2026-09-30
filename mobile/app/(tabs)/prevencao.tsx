@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { container } from '@core/di/container';
-import { Screen, Subtitle, Title } from '@presentation/components/ui';
+import { Screen, Subtitle } from '@presentation/components/ui';
+import { CabecalhoAba } from '@presentation/components/features/navegacao/CabecalhoAba';
 import { Acordeao } from '@presentation/components/features/conteudo/Acordeao';
 import { colors, fonts, fontSizes, radius } from '@presentation/theme';
 
 export default function PrevencaoScreen() {
   return (
     <Screen>
-      <Title>Ações Preventivas</Title>
+      <CabecalhoAba titulo="Ações Preventivas" />
       <Subtitle>Hábitos e sinais de alerta para cuidar da saúde antes de adoecer.</Subtitle>
 
       {container.conteudo.prevencao.map((topico) => (

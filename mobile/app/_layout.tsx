@@ -66,6 +66,8 @@ function RootStack() {
       <Stack.Protected guard={logado && !recuperandoSenha}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="pre-prontuario" options={{ presentation: 'modal', headerShown: true, title: 'Pré-prontuário' }} />
+        {/* Fora das abas: abre pelo avatar do canto superior direito. */}
+        <Stack.Screen name="perfil" options={{ headerShown: true, title: 'Meu perfil' }} />
       </Stack.Protected>
       <Stack.Protected guard={logado && recuperandoSenha}>
         <Stack.Screen name="nova-senha" options={{ headerShown: true, title: 'Nova senha' }} />

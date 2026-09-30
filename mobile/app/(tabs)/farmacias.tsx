@@ -3,7 +3,8 @@ import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type MapView from 'react-native-maps';
 import type { Farmacia } from '@domain/entities/Farmacia';
-import { Body, Button, ErrorMessage, Subtitle, Title } from '@presentation/components/ui';
+import { Body, Button, ErrorMessage, Subtitle } from '@presentation/components/ui';
+import { CabecalhoAba } from '@presentation/components/features/navegacao/CabecalhoAba';
 import { FarmaciaCard } from '@presentation/components/features/farmacias/FarmaciaCard';
 import { FarmaciasMap } from '@presentation/components/features/farmacias/FarmaciasMap';
 import { FiltrosFarmacias } from '@presentation/components/features/farmacias/FiltrosFarmacias';
@@ -43,7 +44,7 @@ export default function FarmaciasScreen() {
         onScrollToIndexFailed={() => {}}
         ListHeaderComponent={
           <View style={styles.cabecalho}>
-            <Title>Farmácias</Title>
+            <CabecalhoAba titulo="Farmácias" />
             <Subtitle>
               {carregando
                 ? 'Carregando...'

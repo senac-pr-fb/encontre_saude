@@ -1,6 +1,7 @@
 import { ComponentProps } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { BotaoDocumento } from '@presentation/components/features/navegacao/BotaoDocumento';
 import { colors, fonts } from '@presentation/theme';
 
 type IconName = ComponentProps<typeof FontAwesome6>['name'];
@@ -11,7 +12,10 @@ const tab = (title: string, icon: IconName): ComponentProps<typeof Tabs.Screen>[
   tabBarIcon: ({ color, size }) => <FontAwesome6 name={icon} color={color} size={size - 2} />,
 });
 
+// O perfil saiu da navbar: fica no avatar do canto superior direito (CabecalhoAba).
 export default function TabsLayout() {
+  const router = useRouter();
+
   return (
     <Tabs
       screenOptions={{
@@ -24,9 +28,15 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={tab('Home', 'house')} />
       <Tabs.Screen name="primeiros-socorros" options={tab('Socorros', 'kit-medical')} />
+      <Tabs.Screen
+        name="gerar-documento"
+        options={{
+          title: 'Pré-prontuário',
+          tabBarButton: () => <BotaoDocumento onPress={() => router.push('/pre-prontuario')} />,
+        }}
+      />
       <Tabs.Screen name="prevencao" options={tab('Prevenção', 'shield-heart')} />
       <Tabs.Screen name="farmacias" options={tab('Farmácias', 'prescription-bottle-medical')} />
-      <Tabs.Screen name="perfil" options={tab('Perfil', 'user')} />
     </Tabs>
   );
 }

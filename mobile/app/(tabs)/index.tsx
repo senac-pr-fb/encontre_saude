@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LIMITE_RELATO } from '@domain/usecases/triagem';
-import { Body, Button, Card, ErrorMessage, Input, Screen, Subtitle, Title } from '@presentation/components/ui';
+import { Body, Button, Card, ErrorMessage, Input, Screen, Subtitle } from '@presentation/components/ui';
+import { CabecalhoAba } from '@presentation/components/features/navegacao/CabecalhoAba';
 import { ResultadoTriagem } from '@presentation/components/features/triagem/ResultadoTriagem';
 import { LegendaUrgencia } from '@presentation/components/features/triagem/LegendaUrgencia';
 import { AvisoMedico, ChamarSamu } from '@presentation/components/features/triagem/AvisoMedico';
@@ -21,7 +22,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <Title>Triagem de sintomas</Title>
+      <CabecalhoAba titulo="Triagem de sintomas" />
       <Subtitle>Descreva o que você está sentindo e receba uma orientação inicial.</Subtitle>
 
       <AvisoMedico />

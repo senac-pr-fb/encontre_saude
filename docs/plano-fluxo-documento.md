@@ -63,12 +63,17 @@ Histórico:
 - [x] Invalidar `['perfil']` e `['historico']` depois do `concluir`.
 - [x] Testes de `montarContexto`, `contextoParaFormulario` e `useContextoSaude`.
 
-### Fase 2 — Navegação
-- [ ] Abas: Home · Socorros · **[Documento]** · Prevenção · Farmácias.
-      Botão do meio com `tabBarButton` próprio; rota vazia com `tabPress` →
-      `router.push('/documento')` (modal).
-- [ ] Perfil: `(tabs)/perfil.tsx` → `app/perfil/index.tsx` (Stack, mesmo
-      `Stack.Protected`). Avatar no canto superior direito via prop do `Screen`.
+### Fase 2 — Navegação ✅
+- [x] Abas: Home · Socorros · **[Pré-prontuário]** · Prevenção · Farmácias.
+      `BotaoDocumento` como `tabBarButton` da rota `(tabs)/gerar-documento`
+      (só reserva o lugar; aberta por link, redireciona).
+      **Provisório:** aponta para `/pre-prontuario`; na fase 3 troca para
+      `/documento` (em `(tabs)/_layout.tsx` e `(tabs)/gerar-documento.tsx`).
+- [x] Perfil: `(tabs)/perfil.tsx` → `app/perfil.tsx` (Stack, mesmo
+      `Stack.Protected`, header nativo "Meu perfil").
+- [x] Avatar: `CabecalhoAba` (título + `BotaoPerfil`) nas 4 abas — o `Screen`
+      não serve porque Farmácias usa `FlatList`. Ponto vermelho no avatar
+      quando `contexto.faltantes` não está vazio.
 
 ### Fase 3 — Tela `/documento` (botão do meio)
 - [ ] Estado `pronto`: prévia + **Gerar PDF** (reusa `concluir` e `prontuarioPdfService`).
