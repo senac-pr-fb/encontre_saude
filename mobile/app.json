@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Encontre Saúde",
-    "slug": "encontre-saude",
+    "slug": "urbeos-mop7ayzy6qd8uwsx3godh",
     "version": "1.0.0",
     "scheme": "encontresaude",
     "orientation": "portrait",
@@ -47,9 +47,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "06be98df-3405-4905-9a28-f6894e9d1e7a"
+        "projectId": "9466a643-b2d6-4705-8775-f46b96dbd279"
       }
     },
-    "owner": "thiago_metzler"
+    "owner": "thiagometzlers-team"
   }
 }
