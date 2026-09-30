@@ -9,6 +9,7 @@ export default defineConfig({
         farmacias: resolve(__dirname, 'pages/farmacias_pages/farmacias.html'),
         primeiros_socorros: resolve(__dirname, 'pages/primeiro_socorros_pages/primeiros_socorros.html'),
         prevencao: resolve(__dirname, 'pages/prevencao_pages/prevencao.html'),
+        app: resolve(__dirname, 'pages/app_pages/app.html'),
       },
     },
   },

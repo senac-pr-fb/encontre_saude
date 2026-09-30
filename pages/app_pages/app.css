@@ -1,0 +1,236 @@
+@import url(./../../config/config.css);
+@import url(./../../shared/sidebar.css);
+@import url(./../../shared/footer.css);
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Outfit', sans-serif;
+}
+
+body {
+  background-color: var(--beige-light);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+#app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* Hero */
+.app-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3rem;
+  padding: 4rem 0 3rem;
+}
+
+.hero-text {
+  flex: 1;
+  max-width: 620px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--green-accent);
+  color: var(--green-dark);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  margin-bottom: 1.25rem;
+}
+
+.hero-text h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--green-dark);
+  margin-bottom: 1rem;
+}
+
+.hero-text h1 span {
+  background: linear-gradient(135deg, var(--green-dark) 0%, var(--green-medium) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-text p {
+  font-size: 1.1rem;
+  color: var(--text-light);
+  margin-bottom: 2rem;
+}
+
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--green-dark);
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 0.9rem 2rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+}
+
+.download-btn:hover {
+  background: var(--btn-active);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+.qr-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  padding: 1.75rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.qr-card img {
+  width: 240px;
+  height: 240px;
+  display: block;
+  margin: 0 auto 1rem;
+}
+
+.qr-card p {
+  color: var(--text-light);
+  font-size: 0.95rem;
+}
+
+.qr-card i {
+  color: var(--green-medium);
+  margin-right: 0.3rem;
+}
+
+/* Seções */
+.app-section {
+  padding: 2.5rem 0;
+}
+
+.app-section h2 {
+  font-size: 1.8rem;
+  color: var(--green-dark);
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  padding: 2rem 1.5rem;
+  transition: all var(--transition-normal);
+}
+
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+.feature-card i {
+  font-size: 1.6rem;
+  color: var(--green-medium);
+  background: var(--green-accent);
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.feature-card h3,
+.steps h3 {
+  font-size: 1.15rem;
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+.feature-card p,
+.steps p {
+  color: var(--text-light);
+  font-size: 0.95rem;
+}
+
+/* Passos */
+.steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.steps li {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--green-dark);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsividade */
+@media (max-width: 900px) {
+  .app-hero {
+    flex-direction: column;
+    text-align: center;
+    padding-top: 5rem;
+  }
+
+  .hero-text h1 {
+    font-size: 2.2rem;
+  }
+
+  /* No celular o botão é o caminho principal, o QR fica secundário */
+  .qr-card {
+    order: 2;
+    padding: 1.25rem;
+  }
+
+  .qr-card img {
+    width: 160px;
+    height: 160px;
+  }
+}

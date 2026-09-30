@@ -1,3 +1,4 @@
+import { ROUTES, APP_DOWNLOAD } from "../config/routes/routes.js";
 
 export function createFooter() {
     // Check if footer already exists to avoid duplicates
@@ -57,9 +58,35 @@ export function createFooter() {
     rightSection.appendChild(projectTitle);
     rightSection.appendChild(projectDesc);
 
+    // App Section: QR code + link to the app page
+    const appSection = document.createElement("div");
+    appSection.className = "footer-app";
+
+    const appTitle = document.createElement("h3");
+    appTitle.textContent = "Baixe nosso app";
+
+    const appLink = document.createElement("a");
+    appLink.href = APP_DOWNLOAD.url;
+    appLink.target = "_blank";
+    appLink.rel = "noopener noreferrer";
+    const qrImg = document.createElement("img");
+    qrImg.src = APP_DOWNLOAD.qrCode;
+    qrImg.alt = "QR Code para baixar o aplicativo Encontre Saúde";
+    appLink.appendChild(qrImg);
+
+    const appPageLink = document.createElement("a");
+    appPageLink.className = "footer-app-link";
+    appPageLink.href = ROUTES.app;
+    appPageLink.innerHTML = 'Conheça o app <i class="fa-solid fa-arrow-right"></i>';
+
+    appSection.appendChild(appTitle);
+    appSection.appendChild(appLink);
+    appSection.appendChild(appPageLink);
+
     // Append sections
     container.appendChild(leftSection);
     container.appendChild(rightSection);
+    container.appendChild(appSection);
     footer.appendChild(container);
 
     // Append to body (or specific container if needed, but body is usually safe for fixed/bottom footers)

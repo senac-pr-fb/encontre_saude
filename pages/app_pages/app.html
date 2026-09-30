@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplicativo</title>
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <link rel="stylesheet" href="./app.css">
+    <script type="module" src="./app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <header id="header"></header>
+
+    <main id="app-container">
+
+        <!-- Hero -->
+        <section class="app-hero">
+            <div class="hero-text">
+                <span class="hero-badge"><i class="fa-brands fa-android"></i> Disponível para Android</span>
+                <h1>Encontre Saúde <span>no seu bolso</span></h1>
+                <p>
+                    Tudo o que você já encontra no site, agora em um aplicativo: triagem de sintomas,
+                    primeiros socorros, dicas de prevenção e farmácias de Francisco Beltrão, sempre à mão.
+                </p>
+                <a class="download-btn" data-app-download target="_blank" rel="noopener noreferrer">
+                    <i class="fa-solid fa-download"></i> Baixar o app
+                </a>
+            </div>
+
+            <div class="qr-card">
+                <img data-app-qrcode alt="QR Code para baixar o aplicativo Encontre Saúde">
+                <p><i class="fa-solid fa-camera"></i> Aponte a câmera do celular para baixar</p>
+            </div>
+        </section>
+
+        <!-- Funcionalidades -->
+        <section class="app-section">
+            <h2>O que você encontra no app</h2>
+            <div class="features-grid">
+                <article class="feature-card">
+                    <i class="fa-solid fa-stethoscope"></i>
+                    <h3>Triagem de sintomas</h3>
+                    <p>Descreva o que está sentindo e receba uma orientação inicial com apoio de IA.</p>
+                </article>
+                <article class="feature-card">
+                    <i class="fa-solid fa-kit-medical"></i>
+                    <h3>Primeiros socorros</h3>
+                    <p>Passo a passo rápido para agir em situações de emergência.</p>
+                </article>
+                <article class="feature-card">
+                    <i class="fa-solid fa-shield-heart"></i>
+                    <h3>Ações preventivas</h3>
+                    <p>Dicas para cuidar da saúde e evitar doenças no dia a dia.</p>
+                </article>
+                <article class="feature-card">
+                    <i class="fa-solid fa-prescription-bottle-medical"></i>
+                    <h3>Farmácias</h3>
+                    <p>Encontre farmácias por bairro e veja a localização no mapa.</p>
+                </article>
+            </div>
+        </section>
+
+        <!-- Como instalar -->
+        <section class="app-section">
+            <h2>Como instalar</h2>
+            <ol class="steps">
+                <li>
+                    <span class="step-number">1</span>
+                    <h3>Escaneie ou clique</h3>
+                    <p>Use o QR Code acima ou toque em "Baixar o app" pelo celular.</p>
+                </li>
+                <li>
+                    <span class="step-number">2</span>
+                    <h3>Baixe o arquivo</h3>
+                    <p>No Google Drive, toque em baixar para salvar o instalador (APK).</p>
+                </li>
+                <li>
+                    <span class="step-number">3</span>
+                    <h3>Instale e abra</h3>
+                    <p>Abra o arquivo e, se solicitado, permita a instalação de fontes desconhecidas.</p>
+                </li>
+            </ol>
+        </section>
+
+    </main>
+
+</body>
+
+</html>
