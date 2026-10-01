@@ -42,11 +42,18 @@ import {
   type LinhaHistorico,
 } from './historico.ts';
 import { MAX_PERGUNTAS, type Triagem } from './schema.ts';
+import {
+  COLUNAS_FICHA,
+  episodioIndicado,
+  lerRespostas,
+  limitarPerguntas,
+  resumoDaFicha,
+  textoDoEpisodio,
+  type Ficha,
+} from './regras.ts';
 import { analisarComModelo } from './modelo.ts';
 
 const LIMITE_RELATO = 2000;
-const LIMITE_RESPOSTA = 500;
-const MAX_RESPOSTAS = 5;
 
 const INSTRUCOES = `Você é um assistente de triagem de sintomas de um aplicativo de saúde pública de Francisco Beltrão, no Paraná.
 
@@ -92,88 +99,6 @@ const json = (corpo: unknown, status = 200) =>
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
-
-interface Resposta {
-  pergunta: string;
-  resposta: string;
-}
-
-/** Só as colunas clínicas: identificação (nome, CPF, telefone) nunca vai ao modelo. */
-const COLUNAS_FICHA =
-  'idade, data_nascimento, sexo, peso, altura, fuma, bebe, alergias, alergia_medicamento, ' +
-  'medicamentos_em_uso, doencas_preexistentes, possui_deficiencia';
-
-interface Ficha {
-  idade: number | null;
-  data_nascimento: string | null;
-  sexo: string | null;
-  peso: number | null;
-  altura: number | null;
-  fuma: boolean | null;
-  bebe: boolean | null;
-  alergias: string | null;
-  alergia_medicamento: string | null;
-  medicamentos_em_uso: string | null;
-  doencas_preexistentes: string | null;
-  possui_deficiencia: string | null;
-}
-
-function idadeDe(ficha: Ficha): number | null {
-  if (ficha.data_nascimento) {
-    const nasc = new Date(ficha.data_nascimento);
-    if (!Number.isNaN(nasc.getTime())) {
-      const hoje = new Date();
-      let anos = hoje.getFullYear() - nasc.getFullYear();
-      const fezAniversario =
-        hoje.getMonth() > nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() >= nasc.getDate());
-      if (!fezAniversario) anos -= 1;
-      return anos;
-    }
-  }
-  return ficha.idade;
-}
-
-/** Resumo da ficha para o prompt. A data de nascimento vira idade aqui e não sai daqui. */
-function resumoDaFicha(ficha: Ficha | null): string {
-  if (!ficha) return 'Ficha de saúde: o paciente ainda não preencheu.';
-  const v = (x: string | number | null | undefined) =>
-    x === null || x === undefined || String(x).trim() === '' ? 'não informado' : String(x);
-  const sn = (x: boolean | null) => (x === null ? 'não informado' : x ? 'sim' : 'não');
-  return [
-    'Ficha de saúde (preenchida pelo paciente):',
-    `- Idade: ${v(idadeDe(ficha))}`,
-    `- Sexo: ${v(ficha.sexo)}`,
-    `- Peso (kg): ${v(ficha.peso)} · Altura (m): ${v(ficha.altura)}`,
-    `- Fuma: ${sn(ficha.fuma)} · Bebe: ${sn(ficha.bebe)}`,
-    `- Alergias: ${v(ficha.alergias)}`,
-    `- Alergia a medicamentos: ${v(ficha.alergia_medicamento)}`,
-    `- Medicamentos em uso: ${v(ficha.medicamentos_em_uso)}`,
-    `- Doenças preexistentes: ${v(ficha.doencas_preexistentes)}`,
-    `- Deficiência: ${v(ficha.possui_deficiencia)}`,
-  ].join('\n');
-}
-
-/** O que fica no histórico (e vira a queixa do pré-prontuário): relato + respostas. */
-function textoDoEpisodio(descricao: string, respostas: Resposta[]): string {
-  if (respostas.length === 0) return descricao;
-  const qa = respostas.map((r) => `${r.pergunta}\n${r.resposta}`).join('\n\n');
-  return `${descricao}\n\n${qa}`;
-}
-
-function lerRespostas(bruto: unknown): Resposta[] | string {
-  if (bruto === undefined || bruto === null) return [];
-  if (!Array.isArray(bruto) || bruto.length > MAX_RESPOSTAS) return 'Respostas inválidas';
-  const respostas: Resposta[] = [];
-  for (const item of bruto) {
-    const pergunta = typeof item?.pergunta === 'string' ? item.pergunta.trim() : '';
-    const resposta = typeof item?.resposta === 'string' ? item.resposta.trim() : '';
-    if (!pergunta || pergunta.length > LIMITE_RESPOSTA || resposta.length > LIMITE_RESPOSTA) {
-      return `Cada resposta deve ter no máximo ${LIMITE_RESPOSTA} caracteres`;
-    }
-    if (resposta) respostas.push({ pergunta, resposta });
-  }
-  return respostas;
-}
 
 /** Colunas novas do histórico; ausentes enquanto a migration da fase 4.1 não roda. */
 interface ExtrasHistorico {
@@ -361,14 +286,8 @@ Deno.serve(async (req) => {
   if (!analise.ok) return json({ erro: analise.erro }, analise.status);
   const triagem: Triagem = analise.triagem;
 
-  // As regras das perguntas valem aqui também, não só no prompt.
-  triagem.perguntas = segundaRodada || triagem.nivel === 5 ? [] : triagem.perguntas.slice(0, MAX_PERGUNTAS);
-
-  // A IA sugere a ligação; só vale se o código for um dos candidatos enviados.
-  const relacionado =
-    triagem.relacao === 'continuacao' && triagem.episodio_relacionado
-      ? candidatos.get(triagem.episodio_relacionado.trim().toUpperCase()) ?? null
-      : null;
+  triagem.perguntas = limitarPerguntas(triagem, segundaRodada);
+  const relacionado = episodioIndicado(triagem, candidatos);
   const rotulo = normalizarRotulo(triagem.queixa_rotulo) || 'queixa sem rótulo';
 
   // Segunda rodada: o episódio é o do registro da primeira.

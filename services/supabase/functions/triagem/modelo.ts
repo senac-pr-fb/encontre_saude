@@ -43,17 +43,33 @@ function statusDoErro(e: unknown): number | null {
   return Number.isFinite(status) ? status : null;
 }
 
-export async function analisarComModelo(instrucoes: string, conteudo: string): Promise<ResultadoModelo> {
-  // A chave só existe aqui, como secret da função.
-  const chave = Deno.env.get('GEMINI_API_KEY');
-  if (!chave) return falha(500, 'Serviço de triagem não configurado');
+type ParametrosInteracao = Parameters<GoogleGenAI['interactions']['create']>[0];
 
-  const ai = new GoogleGenAI({ apiKey: chave });
+/** O que a função precisa do mundo de fora. Os testes trocam por versões falsas. */
+export interface Dependencias {
+  env: (nome: string) => string | undefined;
+  criarInteracao: (chave: string, params: ParametrosInteracao) => Promise<{ status: string; output_text?: string }>;
+}
+
+const dependenciasReais: Dependencias = {
+  env: (nome) => Deno.env.get(nome),
+  criarInteracao: (chave, params) =>
+    new GoogleGenAI({ apiKey: chave }).interactions.create(params) as Promise<{ status: string; output_text?: string }>,
+};
+
+export async function analisarComModelo(
+  instrucoes: string,
+  conteudo: string,
+  deps: Dependencias = dependenciasReais,
+): Promise<ResultadoModelo> {
+  // A chave só existe aqui, como secret da função.
+  const chave = deps.env('GEMINI_API_KEY');
+  if (!chave) return falha(500, 'Serviço de triagem não configurado');
 
   let interacao;
   try {
-    interacao = await ai.interactions.create({
-      model: Deno.env.get('GEMINI_MODEL') || MODELO_PADRAO,
+    interacao = await deps.criarInteracao(chave, {
+      model: deps.env('GEMINI_MODEL') || MODELO_PADRAO,
       system_instruction: instrucoes,
       input: conteudo,
       // Médio, não baixo: além de classificar o nível, o modelo decide se o relato
@@ -62,6 +78,7 @@ export async function analisarComModelo(instrucoes: string, conteudo: string): P
       response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
       // Nada a reaproveitar entre chamadas: não guardar a conversa no provedor.
       store: false,
+      stream: false,
     });
   } catch (e) {
     const status = statusDoErro(e);

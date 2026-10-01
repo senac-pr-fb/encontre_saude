@@ -43,6 +43,8 @@ app  ──POST { descricao, respostas?, historico_id? } + JWT──▶  triagem
 | `schema.ts` | Formato da resposta (Zod): vira o JSON Schema enviado e valida a volta |
 | `modelo.ts` | **Única parte que conhece o provedor.** Trocar de IA é trocar este arquivo |
 | `historico.ts` | Episódios (72 h) e recorrência (6 meses), funções puras |
+| `regras.ts` | Entrada, o que da ficha vai ao modelo e o que se aceita da resposta dele (funções puras) |
+| `tests/` | Testes em Deno de `historico`, `regras` e `modelo` (com Gemini falso) |
 
 Detalhes que valem saber:
 
@@ -63,6 +65,16 @@ npx supabase functions deploy triagem
 ```
 
 `SUPABASE_URL` e `SUPABASE_ANON_KEY` são injetadas automaticamente — não precisam de `secrets set`. Sem a senha do banco, as migrations podem ser aplicadas pelo SQL Editor do painel (são idempotentes).
+
+### Testes e checagem de tipos
+
+```bash
+cd services
+npm test          # deno test: historico, regras e modelo (Gemini falso, sem rede)
+npm run check     # deno check da função inteira
+```
+
+O Deno vem como dependência de desenvolvimento (`npm install` basta). Os testes cobrem, entre outros: colunas de identificação fora da ficha enviada, data de nascimento virando idade, episódio indicado pela IA aceito só se for um dos candidatos, recorrência contada por episódio, limites de perguntas e respostas, e o tratamento de bloqueio, JSON inválido e erros HTTP do provedor.
 
 ### Testar sem app
 
