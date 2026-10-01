@@ -57,3 +57,42 @@ export interface InteracaoHistorico {
 }
 
 export const ehNivelValido = (n: number): n is NivelUrgencia => n >= 1 && n <= 5;
+
+/** O que cada pergunta de acompanhamento ajuda a esclarecer (enum da Edge Function). */
+export type CampoPergunta = 'alergias' | 'medicamentos_em_uso' | 'doencas_preexistentes' | 'sintoma';
+
+export interface PerguntaTriagem {
+  campo: CampoPergunta;
+  pergunta: string;
+}
+
+export interface RespostaTriagem {
+  pergunta: string;
+  resposta: string;
+}
+
+/**
+ * Dados clínicos que o paciente afirmou na conversa. São só sugestões: a ficha
+ * muda apenas depois que ele confirma.
+ */
+export interface AtualizacoesFicha {
+  alergias: string | null;
+  medicamentosEmUso: string | null;
+  doencasPreexistentes: string | null;
+}
+
+/** Resultado de uma rodada da pré-triagem. */
+export interface AnaliseTriagem {
+  triagem: Triagem;
+  /** Vazio na segunda rodada e em emergência. */
+  perguntas: PerguntaTriagem[];
+  atualizacoes: AtualizacoesFicha;
+  /** Registro do histórico; a segunda rodada atualiza o mesmo. */
+  historicoId: string | null;
+}
+
+/** Segunda rodada: respostas às perguntas da primeira. */
+export interface ComplementoTriagem {
+  respostas: RespostaTriagem[];
+  historicoId: string | null;
+}

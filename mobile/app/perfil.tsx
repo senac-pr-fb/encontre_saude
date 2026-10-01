@@ -40,7 +40,7 @@ export default function PerfilScreen() {
             <ResumoFicha
               contexto={contexto}
               // A pré-triagem é a Home: fecha o perfil em vez de empilhar outra tela.
-              onPreTriagem={() => router.dismissTo('/')}
+              onPreTriagem={() => router.dismissTo({ pathname: '/', params: { completar: '1' } })}
               onManual={() => router.push({ pathname: '/documento', params: { modo: 'editar' } })}
             />
           ) : null}

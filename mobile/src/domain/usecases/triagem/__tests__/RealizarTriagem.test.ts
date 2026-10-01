@@ -1,9 +1,9 @@
-import { RealizarTriagem, LIMITE_RELATO } from '../RealizarTriagem';
+import { RealizarTriagem, LIMITE_RELATO, LIMITE_RESPOSTA } from '../RealizarTriagem';
 import { ok, err } from '@core/utils/result';
 import { ValidationError, NetworkError } from '@domain/errors';
 import type { TriagemRepository } from '@domain/repositories/TriagemRepository';
 import type { TriagemLocalRepository } from '@domain/repositories/ProntuarioRepository';
-import type { Triagem } from '@domain/entities/Triagem';
+import type { AnaliseTriagem, Triagem } from '@domain/entities/Triagem';
 
 function criarRepoFake(): jest.Mocked<TriagemRepository> {
   return { analisar: jest.fn(), historico: jest.fn() };
@@ -22,11 +22,18 @@ const triagem: Triagem = {
   sintomas: ['febre'],
 };
 
+const analise: AnaliseTriagem = {
+  triagem,
+  perguntas: [{ campo: 'alergias', pergunta: 'Tem alergia a algum remédio?' }],
+  atualizacoes: { alergias: null, medicamentosEmUso: null, doencasPreexistentes: null },
+  historicoId: '42',
+};
+
 describe('RealizarTriagem', () => {
   it('analisa a descrição e registra o resultado localmente quando dá certo', async () => {
     const repo = criarRepoFake();
     const local = criarLocalFake();
-    repo.analisar.mockResolvedValue(ok(triagem));
+    repo.analisar.mockResolvedValue(ok(analise));
 
     const resultado = await new RealizarTriagem(repo, local).execute('Estou com febre alta há dois dias');
 
@@ -37,7 +44,7 @@ describe('RealizarTriagem', () => {
       resumo: triagem.resumo,
       recomendacao: triagem.recomendacao,
     });
-    expect(resultado).toEqual(ok(triagem));
+    expect(resultado).toEqual(ok(analise));
   });
 
   it('rejeita descrição muito curta sem chamar o repositório', async () => {
@@ -76,10 +83,56 @@ describe('RealizarTriagem', () => {
   it('remove espaços das bordas antes de validar o tamanho', async () => {
     const repo = criarRepoFake();
     const local = criarLocalFake();
-    repo.analisar.mockResolvedValue(ok(triagem));
+    repo.analisar.mockResolvedValue(ok(analise));
 
     await new RealizarTriagem(repo, local).execute('   Estou com febre alta há dois dias   ');
 
     expect(repo.analisar).toHaveBeenCalledWith('Estou com febre alta há dois dias');
+  });
+});
+
+describe('RealizarTriagem — segunda rodada', () => {
+  const relato = 'Estou com febre alta há dois dias';
+
+  it('envia só as respostas preenchidas, com o registro da primeira rodada', async () => {
+    const repo = criarRepoFake();
+    repo.analisar.mockResolvedValue(ok({ ...analise, perguntas: [] }));
+
+    await new RealizarTriagem(repo, criarLocalFake()).execute(relato, {
+      respostas: [
+        { pergunta: 'Tem alergia?', resposta: ' Dipirona ' },
+        { pergunta: 'Usa remédio?', resposta: '   ' },
+      ],
+      historicoId: '42',
+    });
+
+    expect(repo.analisar).toHaveBeenCalledWith(relato, {
+      respostas: [{ pergunta: 'Tem alergia?', resposta: 'Dipirona' }],
+      historicoId: '42',
+    });
+  });
+
+  it('exige pelo menos uma resposta', async () => {
+    const repo = criarRepoFake();
+
+    const resultado = await new RealizarTriagem(repo, criarLocalFake()).execute(relato, {
+      respostas: [{ pergunta: 'Tem alergia?', resposta: '' }],
+      historicoId: '42',
+    });
+
+    expect(resultado.ok).toBe(false);
+    expect(repo.analisar).not.toHaveBeenCalled();
+  });
+
+  it('recusa resposta maior que o limite', async () => {
+    const repo = criarRepoFake();
+
+    const resultado = await new RealizarTriagem(repo, criarLocalFake()).execute(relato, {
+      respostas: [{ pergunta: 'Tem alergia?', resposta: 'a'.repeat(LIMITE_RESPOSTA + 1) }],
+      historicoId: '42',
+    });
+
+    expect(resultado.ok).toBe(false);
+    expect(repo.analisar).not.toHaveBeenCalled();
   });
 });

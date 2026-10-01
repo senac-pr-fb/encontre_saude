@@ -1,6 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TriagemRepository } from '@domain/repositories/TriagemRepository';
-import type { InteracaoHistorico, Triagem } from '@domain/entities/Triagem';
+import type {
+  AnaliseTriagem,
+  ComplementoTriagem,
+  InteracaoHistorico,
+  PerguntaTriagem,
+  Triagem,
+} from '@domain/entities/Triagem';
 import { ehNivelValido } from '@domain/entities/Triagem';
 import { SINTOMAS, type ColunaSintoma } from '@domain/entities/PreProntuario';
 import { DomainError } from '@domain/errors';
@@ -15,6 +21,17 @@ interface TriagemDTO {
   primeiros_socorros: string;
   unidade_recomendada: string;
   sintomas: Record<string, boolean>;
+}
+
+/** Campos da conversa. Opcionais: a versão anterior da função não os devolve. */
+interface AnaliseDTO extends TriagemDTO {
+  perguntas?: PerguntaTriagem[] | null;
+  atualizacoes_ficha?: {
+    alergias?: string | null;
+    medicamentos_em_uso?: string | null;
+    doencas_preexistentes?: string | null;
+  } | null;
+  historico_id?: number | string | null;
 }
 
 const sintomasMarcados = (mapa: Record<string, boolean> | null | undefined): ColunaSintoma[] =>
@@ -36,14 +53,15 @@ export class SupabaseTriagemRepository implements TriagemRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
   /**
-   * O prompt, a chave do Gemini e a gravação do histórico vivem na Edge
+   * O prompt, a chave do modelo e a gravação do histórico vivem na Edge
    * Function — nada disso entra no bundle. O supabase-js anexa o JWT do
    * usuário automaticamente, e a função recusa chamadas sem ele.
    */
-  async analisar(descricao: string): Promise<Result<Triagem, DomainError>> {
-    const { data, error } = await this.supabase.functions.invoke<TriagemDTO & { erro?: string }>('triagem', {
-      body: { descricao },
-    });
+  async analisar(descricao: string, complemento?: ComplementoTriagem): Promise<Result<AnaliseTriagem, DomainError>> {
+    const body = complemento
+      ? { descricao, respostas: complemento.respostas, historico_id: complemento.historicoId }
+      : { descricao };
+    const { data, error } = await this.supabase.functions.invoke<AnaliseDTO & { erro?: string }>('triagem', { body });
 
     if (error) {
       // O corpo de erro da função traz a mensagem em `erro`; o SDK só expõe o status.
@@ -54,7 +72,7 @@ export class SupabaseTriagemRepository implements TriagemRepository {
       return err(new DomainError(data?.erro ?? 'Resposta vazia da triagem', 'TRIAGEM'));
     }
 
-    return ok(paraTriagem(data));
+    return ok(paraAnalise(data));
   }
 
   async historico(userId: string): Promise<Result<InteracaoHistorico[], DomainError>> {
@@ -84,6 +102,20 @@ export class SupabaseTriagemRepository implements TriagemRepository {
 
     return ok(interacoes);
   }
+}
+
+function paraAnalise(d: AnaliseDTO): AnaliseTriagem {
+  const a = d.atualizacoes_ficha ?? {};
+  return {
+    triagem: paraTriagem(d),
+    perguntas: (d.perguntas ?? []).filter((p) => typeof p?.pergunta === 'string' && p.pergunta.trim() !== ''),
+    atualizacoes: {
+      alergias: a.alergias ?? null,
+      medicamentosEmUso: a.medicamentos_em_uso ?? null,
+      doencasPreexistentes: a.doencas_preexistentes ?? null,
+    },
+    historicoId: d.historico_id === null || d.historico_id === undefined ? null : String(d.historico_id),
+  };
 }
 
 function interpretarResposta(bruto: string | null): Triagem | null {

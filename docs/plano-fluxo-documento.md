@@ -111,19 +111,31 @@ etapas e a pessoa precisava passar por todas para gerar.
       formulário abre nos sintomas (`pularDadosPessoais`) quando os dados
       pessoais são válidos.
 - [x] `mesclarRascunho`: campo em branco no rascunho não apaga o que a ficha tem.
-- [ ] O mesmo componente vira o "campo estruturado" da pré-triagem (fase 4).
+- [x] O mesmo componente vira o "campo estruturado" da pré-triagem (fase 4).
 
-### Fase 4 — Pré-triagem com perguntas (Home + Edge Function)
-- [ ] Edge Function lê `dados_saude` (JWT do usuário, RLS) e inclui resumo
-      clínico no prompt.
-- [ ] Saída nova (opcional): `perguntas[]` e `atualizacoes{}` clínicas.
-- [ ] Entrada nova (opcional): `respostas[]` e `historico_id` (2ª rodada
-      atualiza a mesma linha).
-- [ ] Verificar policy de UPDATE em `historico_ia`; criar migration se faltar.
-- [ ] Home: perguntas como continuação da conversa; campos de identificação
-      estruturados (direto ao Supabase); cartão "Atualizar sua ficha?" com
-      confirmação; botão **Gerar documento** → `/documento`.
-- [ ] Modo "completar dados" (chegando de `/documento` ou do perfil).
+### Fase 4 — Pré-triagem com perguntas (Home + Edge Function) ✅ (código)
+- [x] Edge Function lê `dados_saude` (JWT do usuário, RLS) e inclui resumo
+      clínico no prompt. **Só colunas clínicas**: nome, CPF e telefone nunca
+      são lidos; a data de nascimento vira idade dentro da função.
+- [x] Saída nova (opcional): `perguntas[]` (máx. 3, cortado no código; vazio na
+      2ª rodada e no nível 5) e `atualizacoes_ficha{}` (alergias, medicamentos,
+      doenças — só o que o paciente afirmou).
+- [x] Entrada nova (opcional): `respostas[]` e `historico_id`. A 2ª rodada
+      atualiza a mesma linha (relato + perguntas/respostas viram a queixa); se o
+      UPDATE não passar, grava linha nova para não perder a orientação.
+- [x] Migration `20260930120000_historico_ia_update_proprio.sql` (idempotente):
+      policy de UPDATE do dono em `historico_ia` e `sintomas_atendimento`.
+- [x] App: `AnaliseTriagem` (triagem + perguntas + sugestões + historicoId);
+      repositório aceita a resposta antiga da função (campos novos opcionais).
+- [x] Home: `PerguntasTriagem` (responder ou pular), `SugestaoFicha` (só grava
+      com confirmação, via `AtualizarFichaClinica`), `CamposObrigatorios` para a
+      identificação (direto ao Supabase, sem IA) e **Gerar pré-prontuário**.
+- [x] Perfil → "Atualizar pela pré-triagem" abre a Home com `?completar=1`
+      (obrigatórios faltantes no topo).
+- [ ] **Pendente (ambiente):** `supabase db push` (migration) e
+      `npm run deploy` em `services/` (função). Não foi possível rodar a função
+      localmente aqui (sem Deno/Docker) — validar com `npm run serve` ou após o
+      deploy.
 
 ### Fase 5 — Tela de perfil ✅
 - [x] `ResumoFicha`: barra de completude (`contexto.completude`: 5 obrigatórios

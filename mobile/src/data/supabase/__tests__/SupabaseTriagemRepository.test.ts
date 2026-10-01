@@ -27,7 +27,7 @@ function criarSupabaseFake(respostaHistorico: { data: unknown; error: unknown } 
 }
 
 describe('SupabaseTriagemRepository.analisar', () => {
-  it('mapeia a resposta da Edge Function para a entidade Triagem', async () => {
+  it('mapeia a resposta da versão anterior da função (sem os campos da conversa)', async () => {
     const { supabase, invoke } = criarSupabaseFake();
     invoke.mockResolvedValue({
       data: {
@@ -47,13 +47,60 @@ describe('SupabaseTriagemRepository.analisar', () => {
     expect(resultado).toEqual({
       ok: true,
       value: {
-        nivel: 3,
-        resumo: 'Sintomas significativos',
-        recomendacao: 'Procure atendimento',
-        primeirosSocorros: 'Descanse',
-        unidadeRecomendada: 'UPA',
-        sintomas: ['febre'],
+        triagem: {
+          nivel: 3,
+          resumo: 'Sintomas significativos',
+          recomendacao: 'Procure atendimento',
+          primeirosSocorros: 'Descanse',
+          unidadeRecomendada: 'UPA',
+          sintomas: ['febre'],
+        },
+        perguntas: [],
+        atualizacoes: { alergias: null, medicamentosEmUso: null, doencasPreexistentes: null },
+        historicoId: null,
       },
+    });
+  });
+
+  it('mapeia perguntas, sugestões para a ficha e o registro do histórico', async () => {
+    const { supabase, invoke } = criarSupabaseFake();
+    invoke.mockResolvedValue({
+      data: {
+        nivel: 2,
+        resumo: 'r',
+        recomendacao: 'rec',
+        primeiros_socorros: '',
+        unidade_recomendada: 'UBS',
+        sintomas: {},
+        perguntas: [
+          { campo: 'alergias', pergunta: 'Você tem alergia a algum remédio?' },
+          { campo: 'sintoma', pergunta: '  ' },
+        ],
+        atualizacoes_ficha: { alergias: null, medicamentos_em_uso: 'Losartana', doencas_preexistentes: null },
+        historico_id: 42,
+      },
+      error: null,
+    });
+
+    const resultado = await new SupabaseTriagemRepository(supabase).analisar('pressão alta e dor de cabeça');
+
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(resultado.value.perguntas).toEqual([{ campo: 'alergias', pergunta: 'Você tem alergia a algum remédio?' }]);
+      expect(resultado.value.atualizacoes.medicamentosEmUso).toBe('Losartana');
+      expect(resultado.value.historicoId).toBe('42');
+    }
+  });
+
+  it('na segunda rodada envia as respostas e o registro a atualizar', async () => {
+    const { supabase, invoke } = criarSupabaseFake();
+    invoke.mockResolvedValue({ data: { nivel: 1, sintomas: {} }, error: null });
+    const respostas = [{ pergunta: 'Alergias?', resposta: 'Dipirona' }];
+
+    await new SupabaseTriagemRepository(supabase).analisar('relato', { respostas, historicoId: '42' });
+
+    expect(invoke).toHaveBeenCalledWith('triagem', {
+      body: { descricao: 'relato', respostas, historico_id: '42' },
     });
   });
 
@@ -67,7 +114,7 @@ describe('SupabaseTriagemRepository.analisar', () => {
     const resultado = await new SupabaseTriagemRepository(supabase).analisar('texto');
 
     expect(resultado.ok).toBe(true);
-    if (resultado.ok) expect(resultado.value.nivel).toBe(1);
+    if (resultado.ok) expect(resultado.value.triagem.nivel).toBe(1);
   });
 
   it('lê a mensagem de erro do corpo da resposta quando a função falha', async () => {

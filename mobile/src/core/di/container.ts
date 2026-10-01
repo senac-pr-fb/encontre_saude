@@ -21,7 +21,7 @@ import {
   LimparDadosLocais,
 } from '@domain/usecases/auth';
 import type { LimpezaLocalService } from '@domain/services/LimpezaLocalService';
-import { GetPerfil, SavePerfil, CompletarObrigatorios } from '@domain/usecases/perfil';
+import { GetPerfil, SavePerfil, CompletarObrigatorios, AtualizarFichaClinica } from '@domain/usecases/perfil';
 import { ListarFarmacias } from '@domain/usecases/farmacias';
 import { SalvarConsulta } from '@domain/usecases/prontuario';
 import { RealizarTriagem, GetHistorico } from '@domain/usecases/triagem';
@@ -72,6 +72,7 @@ export const container = {
     get: new GetPerfil(perfilRepo),
     save: new SavePerfil(perfilRepo),
     completarObrigatorios: new CompletarObrigatorios(perfilRepo, authRepo),
+    atualizarFichaClinica: new AtualizarFichaClinica(perfilRepo),
   },
   farmacias: {
     listar: new ListarFarmacias(farmaciaRepo),

@@ -62,10 +62,10 @@ describe('useTriagem', () => {
     const { result } = await renderHook(() => useTriagem(), { wrapper: criarWrapper() });
     await waitFor(() => expect(result.current.carregandoHistorico).toBe(false));
 
-    result.current.analisar.mutate('Estou com febre há dois dias');
+    result.current.analisar.mutate({ descricao: 'Estou com febre há dois dias' });
 
     await waitFor(() => expect(result.current.analisar.isSuccess).toBe(true));
-    expect(container.triagem.realizar.execute).toHaveBeenCalledWith('Estou com febre há dois dias');
+    expect(container.triagem.realizar.execute).toHaveBeenCalledWith('Estou com febre há dois dias', undefined);
     // onSuccess invalida a query; o mock de historico é chamado de novo ao refetch.
     await waitFor(() => expect((container.triagem.historico.execute as jest.Mock).mock.calls.length).toBeGreaterThan(1));
   });
