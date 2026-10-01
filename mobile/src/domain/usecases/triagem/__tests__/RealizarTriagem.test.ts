@@ -6,7 +6,7 @@ import type { TriagemLocalRepository } from '@domain/repositories/ProntuarioRepo
 import type { AnaliseTriagem, Triagem } from '@domain/entities/Triagem';
 
 function criarRepoFake(): jest.Mocked<TriagemRepository> {
-  return { analisar: jest.fn(), historico: jest.fn() };
+  return { analisar: jest.fn(), historico: jest.fn(), desvincularEpisodio: jest.fn() };
 }
 
 function criarLocalFake(): jest.Mocked<TriagemLocalRepository> {
@@ -27,6 +27,9 @@ const analise: AnaliseTriagem = {
   perguntas: [{ campo: 'alergias', pergunta: 'Tem alergia a algum remédio?' }],
   atualizacoes: { alergias: null, medicamentosEmUso: null, doencasPreexistentes: null },
   historicoId: '42',
+  rotulo: 'febre',
+  episodioAnterior: null,
+  recorrencia: [],
 };
 
 describe('RealizarTriagem', () => {

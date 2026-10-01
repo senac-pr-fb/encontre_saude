@@ -21,7 +21,7 @@ function criarWrapper() {
 }
 
 const historico: InteracaoHistorico[] = [
-  { id: '1', quando: '2024-01-01', descricao: 'Dor', triagem: null, sintomas: [] },
+  { id: '1', quando: '2024-01-01', descricao: 'Dor', triagem: null, sintomas: [], episodioId: null, rotulo: null, recorrencia: [] },
 ];
 
 const triagem: Triagem = {

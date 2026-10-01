@@ -24,7 +24,7 @@ import type { LimpezaLocalService } from '@domain/services/LimpezaLocalService';
 import { GetPerfil, SavePerfil, CompletarObrigatorios, AtualizarFichaClinica } from '@domain/usecases/perfil';
 import { ListarFarmacias } from '@domain/usecases/farmacias';
 import { SalvarConsulta } from '@domain/usecases/prontuario';
-import { RealizarTriagem, GetHistorico } from '@domain/usecases/triagem';
+import { RealizarTriagem, GetHistorico, DesvincularEpisodio } from '@domain/usecases/triagem';
 import { SupabaseTriagemRepository } from '@data/supabase/SupabaseTriagemRepository';
 import { SupabaseProntuarioRepository } from '@data/supabase/SupabaseProntuarioRepository';
 import {
@@ -92,5 +92,6 @@ export const container = {
   triagem: {
     realizar: new RealizarTriagem(triagemRepo, triagemLocal),
     historico: new GetHistorico(triagemRepo),
+    desvincular: new DesvincularEpisodio(triagemRepo),
   },
 } as const;

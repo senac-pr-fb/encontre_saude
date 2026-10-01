@@ -4,6 +4,7 @@ import type {
   AnaliseTriagem,
   ComplementoTriagem,
   InteracaoHistorico,
+  ItemRecorrencia,
   PerguntaTriagem,
   Triagem,
 } from '@domain/entities/Triagem';
@@ -32,7 +33,31 @@ interface AnaliseDTO extends TriagemDTO {
     doencas_preexistentes?: string | null;
   } | null;
   historico_id?: number | string | null;
+  queixa_rotulo?: string | null;
+  episodio?: { id: number | string; desde: string; rotulo: string | null } | null;
+  recorrencia?: RecorrenciaDTO[] | null;
 }
+
+interface RecorrenciaDTO {
+  rotulo: string;
+  episodios: number;
+  ultimos_30_dias: number;
+  ultimo_em: string;
+  nivel_max: number | null;
+}
+
+const paraRecorrencia = (lista: RecorrenciaDTO[] | null | undefined): ItemRecorrencia[] =>
+  (Array.isArray(lista) ? lista : [])
+    .filter((r) => typeof r?.rotulo === 'string' && Number.isFinite(r?.episodios))
+    .map((r) => ({
+      rotulo: r.rotulo,
+      episodios: r.episodios,
+      ultimos30Dias: r.ultimos_30_dias ?? 0,
+      ultimoEm: r.ultimo_em ?? '',
+      nivelMax: r.nivel_max ?? null,
+    }));
+
+const COLUNAS_BASE = 'id, created_at, descricao_usuario, resposta_ia, sintomas_atendimento(*)';
 
 const sintomasMarcados = (mapa: Record<string, boolean> | null | undefined): ColunaSintoma[] =>
   SINTOMAS.map((s) => s.coluna).filter((c) => Boolean(mapa?.[c]));
@@ -76,16 +101,23 @@ export class SupabaseTriagemRepository implements TriagemRepository {
   }
 
   async historico(userId: string): Promise<Result<InteracaoHistorico[], DomainError>> {
-    const { data, error } = await this.supabase
-      .from('historico_ia')
-      .select('id, created_at, descricao_usuario, resposta_ia, sintomas_atendimento(*)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const consultar = (colunas: string) =>
+      this.supabase
+        .from('historico_ia')
+        .select(colunas)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+    // Sem a migration de episódios, as colunas novas não existem: lê sem elas.
+    let resposta = await consultar(`${COLUNAS_BASE}, episodio_id, queixa_rotulo`);
+    if (resposta.error) resposta = await consultar(COLUNAS_BASE);
+    const { data, error } = resposta;
 
     if (error) return err(toDomainError(error));
 
-    const interacoes = (data ?? []).map((linha): InteracaoHistorico => {
+    const linhas = (data ?? []) as unknown as LinhaHistoricoDTO[];
+    const interacoes = linhas.map((linha): InteracaoHistorico => {
       const sintomasDaTabela = Array.isArray(linha.sintomas_atendimento)
         ? linha.sintomas_atendimento[0]
         : linha.sintomas_atendimento;
@@ -97,10 +129,39 @@ export class SupabaseTriagemRepository implements TriagemRepository {
         // Registros do pré-prontuário têm texto fixo no lugar do JSON da IA.
         triagem: interpretarResposta(linha.resposta_ia),
         sintomas: sintomasMarcados(sintomasDaTabela as Record<string, boolean> | null),
+        episodioId: linha.episodio_id === null || linha.episodio_id === undefined ? null : String(linha.episodio_id),
+        rotulo: linha.queixa_rotulo ?? null,
+        recorrencia: lerRecorrencia(linha.resposta_ia),
       };
     });
 
     return ok(interacoes);
+  }
+
+  /** "Não é isso": o relato deixa de ser continuação e vira um episódio próprio. */
+  async desvincularEpisodio(historicoId: string): Promise<Result<void, DomainError>> {
+    const { error } = await this.supabase.from('historico_ia').update({ episodio_id: null }).eq('id', historicoId);
+    if (error) return err(toDomainError(error));
+    return ok(undefined);
+  }
+}
+
+interface LinhaHistoricoDTO {
+  id: number | string;
+  created_at: string;
+  descricao_usuario: string | null;
+  resposta_ia: string | null;
+  sintomas_atendimento: Record<string, boolean> | Record<string, boolean>[] | null;
+  episodio_id?: number | string | null;
+  queixa_rotulo?: string | null;
+}
+
+function lerRecorrencia(bruto: string | null): ItemRecorrencia[] {
+  if (!bruto) return [];
+  try {
+    return paraRecorrencia((JSON.parse(bruto) as { recorrencia?: RecorrenciaDTO[] })?.recorrencia);
+  } catch {
+    return [];
   }
 }
 
@@ -115,6 +176,11 @@ function paraAnalise(d: AnaliseDTO): AnaliseTriagem {
       doencasPreexistentes: a.doencas_preexistentes ?? null,
     },
     historicoId: d.historico_id === null || d.historico_id === undefined ? null : String(d.historico_id),
+    rotulo: d.queixa_rotulo ?? null,
+    episodioAnterior: d.episodio
+      ? { id: String(d.episodio.id), desde: d.episodio.desde, rotulo: d.episodio.rotulo ?? null }
+      : null,
+    recorrencia: paraRecorrencia(d.recorrencia),
   };
 }
 

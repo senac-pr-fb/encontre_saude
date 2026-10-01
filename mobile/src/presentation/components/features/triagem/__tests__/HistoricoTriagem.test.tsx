@@ -14,7 +14,7 @@ describe('HistoricoTriagem', () => {
 
   it('mostra a contagem no título quando há interações', async () => {
     const interacoes: InteracaoHistorico[] = [
-      { id: '1', quando: '2024-01-01T10:00:00Z', descricao: 'Dor', triagem: null, sintomas: [] },
+      { id: '1', quando: '2024-01-01T10:00:00Z', descricao: 'Dor', triagem: null, sintomas: [], episodioId: null, rotulo: null, recorrencia: [] },
     ];
     await render(<HistoricoTriagem interacoes={interacoes} carregando={false} />);
     expect(screen.getByText('Histórico de consultas (1)')).toBeTruthy();
@@ -34,7 +34,7 @@ describe('HistoricoTriagem', () => {
 
   it('mostra o selo "Pré-prontuário" para registros sem triagem da IA', async () => {
     const interacoes: InteracaoHistorico[] = [
-      { id: '1', quando: '2024-01-01T10:00:00Z', descricao: 'Consulta manual', triagem: null, sintomas: ['febre'] },
+      { id: '1', quando: '2024-01-01T10:00:00Z', descricao: 'Consulta manual', triagem: null, sintomas: ['febre'], episodioId: null, rotulo: null, recorrencia: [] },
     ];
     await render(<HistoricoTriagem interacoes={interacoes} carregando={false} />);
     await abrirAcordeao();
@@ -59,6 +59,9 @@ describe('HistoricoTriagem', () => {
           sintomas: [],
         },
         sintomas: [],
+        episodioId: null,
+        rotulo: null,
+        recorrencia: [],
       },
     ];
     await render(<HistoricoTriagem interacoes={interacoes} carregando={false} />);

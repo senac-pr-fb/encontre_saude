@@ -13,6 +13,11 @@
  * Quem manda só `descricao` recebe tudo o que já recebia; os campos novos são
  * acréscimos.
  *
+ * Histórico como contexto (historico.ts): relatos das últimas 72 h entram como
+ * candidatos a continuação ("dor de cabeça há 2 h" + "agora febre" = mesmo
+ * episódio) e os últimos 6 meses viram contagens de recorrência. A ligação é
+ * sugerida pela IA e validada aqui; o app permite desfazê-la.
+ *
  * Privacidade: da ficha, só os dados clínicos entram no prompt. Nome, CPF,
  * telefone e data de nascimento nunca são enviados ao modelo (a idade sim).
  *
@@ -24,6 +29,18 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk@^0.128.0';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@^0.128.0/helpers/zod';
 import { z } from 'npm:zod@^4';
+import {
+  agruparEpisodios,
+  calcularRecorrencia,
+  candidatosAContinuacao,
+  JANELA_RECORRENCIA_DIAS,
+  normalizarRotulo,
+  rotulosConhecidos,
+  textoCandidatos,
+  textoRecorrencia,
+  type ItemRecorrencia,
+  type LinhaHistorico,
+} from './historico.ts';
 
 const MODELO = 'claude-opus-5';
 const LIMITE_RELATO = 2000;
@@ -77,6 +94,17 @@ const TriagemSchema = z.object({
       doencas_preexistentes: z.string().nullable(),
     })
     .describe('Só o que o paciente afirmou explicitamente; null no que ele não disse'),
+  relacao: z
+    .enum(['novo', 'continuacao'])
+    .describe('continuacao se o relato é evolução de um dos relatos recentes listados; novo caso contrário'),
+  // Código (E1, E2…) e não enum: um enum por requisição recompilaria o schema a cada chamada.
+  episodio_relacionado: z
+    .string()
+    .nullable()
+    .describe('Código do relato recente (ex.: E1) quando relacao é continuacao; null quando é novo'),
+  queixa_rotulo: z
+    .string()
+    .describe('Rótulo da queixa principal em 2 a 4 palavras, minúsculas, termo leigo (ex.: "dor de cabeça", "dor no joelho")'),
 });
 
 type Triagem = z.infer<typeof TriagemSchema>;
@@ -100,6 +128,15 @@ Perguntas de acompanhamento ("perguntas"), só na primeira análise:
 - No máximo ${MAX_PERGUNTAS} perguntas, as mais úteis primeiro.
 - Nunca pergunte nome, CPF, telefone, endereço ou data de nascimento.
 - Se já houver respostas de acompanhamento ou se o nível for 5, devolva a lista vazia: em emergência, nada deve atrasar a busca por atendimento.
+
+Relatos recentes ("relacao" e "episodio_relacionado"):
+- Marque "continuacao" só se o relato atual for evolução do mesmo problema de um relato recente listado: piora, novo sintoma plausivelmente ligado (ex.: dor de cabeça e depois febre), ou complemento do que já foi contado. Informe o código (E1, E2…).
+- Marque "novo" se for outro problema: outra parte do corpo sem ligação, outra causa (ex.: dor no joelho após exercício depois de uma dor de cabeça). Na dúvida, "novo".
+- Em continuação, classifique o nível pelo quadro completo, considerando também os relatos anteriores do episódio.
+
+Recorrência: se a queixa atual já apareceu em outros episódios, diga isso de forma simples na recomendação e sugira avaliação na UBS mesmo que este episódio passe. Mudança de padrão — mais frequente, mais forte ou diferente das anteriores — merece mais atenção. Não dê nome de doença.
+
+Em "queixa_rotulo", se a queixa for a mesma de um rótulo já usado por este paciente, repita exatamente esse rótulo.
 
 Em "atualizacoes_ficha", preencha só o que o paciente afirmou explicitamente no relato ou nas respostas, em texto curto (ex.: "Dipirona", "Losartana 50 mg", "Nenhuma" se ele disse que não tem). Deixe null o que ele não disse — não deduza.
 
@@ -199,26 +236,71 @@ function lerRespostas(bruto: unknown): Resposta[] | string {
   return respostas;
 }
 
+/** Colunas novas do histórico; ausentes enquanto a migration da fase 4.1 não roda. */
+interface ExtrasHistorico {
+  episodio_id: number | string | null;
+  queixa_rotulo: string;
+}
+
 /**
- * Grava o episódio. Na segunda rodada atualiza o registro da primeira; se o
- * update não passar (registro de outro usuário, sem policy de UPDATE), grava um
- * novo para não perder a orientação.
+ * Últimos 6 meses do histórico do usuário. Sem as colunas novas (migration não
+ * aplicada), lê sem elas e a triagem segue como antes, sem episódios.
+ */
+async function lerHistorico(
+  supabase: SupabaseClient,
+  userId: string,
+  agora: number,
+): Promise<{ linhas: LinhaHistorico[]; colunasNovas: boolean }> {
+  const desde = new Date(agora - JANELA_RECORRENCIA_DIAS * 24 * 60 * 60 * 1000).toISOString();
+  const base = 'id, created_at, descricao_usuario, resposta_ia, sintomas_atendimento(*)';
+  const consultar = (colunas: string) =>
+    supabase
+      .from('historico_ia')
+      .select(colunas)
+      .eq('user_id', userId)
+      .gte('created_at', desde)
+      .order('created_at', { ascending: false })
+      .limit(300);
+
+  const completo = await consultar(`${base}, episodio_id, queixa_rotulo`);
+  if (!completo.error) return { linhas: (completo.data ?? []) as unknown as LinhaHistorico[], colunasNovas: true };
+
+  console.warn('[triagem] histórico sem colunas de episódio:', completo.error.message);
+  const simples = await consultar(base);
+  if (simples.error) console.error('[triagem] histórico não lido:', simples.error.message);
+  return { linhas: (simples.data ?? []) as unknown as LinhaHistorico[], colunasNovas: false };
+}
+
+/**
+ * Grava o relato. Na segunda rodada atualiza o registro da primeira (sem mexer
+ * no episódio já decidido); se o update não passar (sem policy de UPDATE),
+ * grava um novo para não perder a orientação.
  */
 async function salvarHistorico(
   supabase: SupabaseClient,
   userId: string,
   texto: string,
   triagem: Triagem,
+  recorrencia: ItemRecorrencia[],
+  extras: ExtrasHistorico | null,
   historicoId: number | string | null,
 ): Promise<number | string | null> {
-  // O histórico guarda só a triagem: perguntas e sugestões são da conversa, não do registro.
-  const { perguntas: _p, atualizacoes_ficha: _a, ...registro } = triagem;
-  const linha = { descricao_usuario: texto, resposta_ia: JSON.stringify(registro) };
+  // O registro guarda a triagem e a recorrência daquele momento (vai para o PDF);
+  // perguntas, sugestões e a decisão de episódio são da conversa.
+  const {
+    perguntas: _p,
+    atualizacoes_ficha: _a,
+    relacao: _r,
+    episodio_relacionado: _e,
+    queixa_rotulo: _q,
+    ...registro
+  } = triagem;
+  const linha = { descricao_usuario: texto, resposta_ia: JSON.stringify({ ...registro, recorrencia }) };
 
   if (historicoId !== null) {
     const { data, error } = await supabase
       .from('historico_ia')
-      .update(linha)
+      .update(extras ? { ...linha, queixa_rotulo: extras.queixa_rotulo } : linha)
       .eq('id', historicoId)
       .eq('user_id', userId)
       .select('id');
@@ -242,7 +324,7 @@ async function salvarHistorico(
 
   const { data: historico, error: erroHistorico } = await supabase
     .from('historico_ia')
-    .insert({ user_id: userId, ...linha })
+    .insert({ user_id: userId, ...linha, ...(extras ?? {}) })
     .select('id')
     .single();
 
@@ -311,7 +393,23 @@ Deno.serve(async (req) => {
     .maybeSingle<Ficha>();
   if (erroFicha) console.error('[triagem] ficha não lida:', erroFicha.message);
 
-  const partes = [resumoDaFicha(ficha ?? null), `Relato do paciente:\n\n${descricao}`];
+  // 4. Histórico como contexto: episódios recentes e recorrência. Na segunda
+  //    rodada o próprio registro sai da conta, senão contaria duas vezes.
+  const agora = Date.now();
+  const { linhas, colunasNovas } = await lerHistorico(supabase, user.id, agora);
+  const anteriores = segundaRodada ? linhas.filter((l) => String(l.id) !== String(historicoId)) : linhas;
+  const episodios = agruparEpisodios(anteriores);
+  // Na segunda rodada o episódio já foi decidido na primeira.
+  const candidatos = segundaRodada || !colunasNovas ? new Map() : candidatosAContinuacao(episodios, agora);
+  const recorrencia = calcularRecorrencia(episodios, agora);
+
+  const partes = [
+    resumoDaFicha(ficha ?? null),
+    textoCandidatos(candidatos, agora),
+    textoRecorrencia(recorrencia, agora),
+    `Rótulos já usados por este paciente: ${rotulosConhecidos(episodios).join(', ') || 'nenhum'}.`,
+    `Relato do paciente:\n\n${descricao}`,
+  ];
   if (segundaRodada) {
     partes.push(
       'Respostas às perguntas de acompanhamento:\n\n' +
@@ -319,7 +417,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  // 4. Claude, com a chave que só existe aqui
+  // 5. Claude, com a chave que só existe aqui
   const chave = Deno.env.get('ANTHROPIC_API_KEY');
   if (!chave) return json({ erro: 'Serviço de triagem não configurado' }, 500);
 
@@ -363,14 +461,47 @@ Deno.serve(async (req) => {
   // As regras das perguntas valem aqui também, não só no prompt.
   triagem.perguntas = segundaRodada || triagem.nivel === 5 ? [] : triagem.perguntas.slice(0, MAX_PERGUNTAS);
 
-  // 5. Histórico. Falhar aqui não invalida a orientação já produzida.
+  // A IA sugere a ligação; só vale se o código for um dos candidatos enviados.
+  const relacionado =
+    triagem.relacao === 'continuacao' && triagem.episodio_relacionado
+      ? candidatos.get(triagem.episodio_relacionado.trim().toUpperCase()) ?? null
+      : null;
+  const rotulo = normalizarRotulo(triagem.queixa_rotulo) || 'queixa sem rótulo';
+
+  // Segunda rodada: o episódio é o do registro da primeira.
+  const registroAtual = segundaRodada ? linhas.find((l) => String(l.id) === String(historicoId)) : undefined;
+  const episodioId = segundaRodada ? registroAtual?.episodio_id ?? null : relacionado?.chave ?? null;
+  const episodioAnterior = segundaRodada
+    ? episodioId !== null
+      ? episodios.find((e) => e.chave === String(episodioId)) ?? null
+      : null
+    : relacionado;
+
+  // 6. Histórico. Falhar aqui não invalida a orientação já produzida.
   const id = await salvarHistorico(
     supabase,
     user.id,
     textoDoEpisodio(descricao, respostas),
     triagem,
+    recorrencia,
+    colunasNovas ? { episodio_id: episodioId, queixa_rotulo: rotulo } : null,
     segundaRodada ? historicoId : null,
   );
 
-  return json({ ...triagem, historico_id: id });
+  const { episodio_relacionado: _e, ...saida } = triagem;
+  return json({
+    ...saida,
+    queixa_rotulo: rotulo,
+    relacao: episodioAnterior ? 'continuacao' : 'novo',
+    // O app mostra "continuação de … · Não é isso" com isto.
+    episodio: episodioAnterior
+      ? {
+          id: episodioAnterior.chave,
+          desde: new Date(episodioAnterior.inicio).toISOString(),
+          rotulo: episodioAnterior.linhas[0]?.queixa_rotulo ?? [...episodioAnterior.rotulos][0] ?? null,
+        }
+      : null,
+    recorrencia,
+    historico_id: id,
+  });
 });

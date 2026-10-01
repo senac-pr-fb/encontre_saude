@@ -42,12 +42,12 @@ describe('useConcluirPreProntuario', () => {
     const { result } = await renderHook(() => useConcluirPreProntuario(), { wrapper: criarWrapper(client()) });
 
     const valores = { nome: 'Nome Novo', queixaPrincipal: 'Febre alta desde ontem' } as never;
-    result.current.mutate(valores);
+    result.current.mutate({ valores });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(container.prontuario.salvar.execute).toHaveBeenCalledWith('user-1', valores);
+    expect(container.prontuario.salvar.execute).toHaveBeenCalledWith('user-1', expect.objectContaining(valores));
     expect(container.auth.repo.atualizarNome).toHaveBeenCalledWith('Nome Novo');
-    expect(container.prontuario.pdf.gerar).toHaveBeenCalledWith(valores);
+    expect(container.prontuario.pdf.gerar).toHaveBeenCalledWith(expect.objectContaining(valores));
     expect(container.prontuario.rascunho.limpar).toHaveBeenCalledTimes(1);
     expect(result.current.data?.pdf.uri).toBe('file:///doc.pdf');
   });
@@ -55,7 +55,7 @@ describe('useConcluirPreProntuario', () => {
   it('não atualiza o nome quando ele não mudou em relação à conta', async () => {
     const { result } = await renderHook(() => useConcluirPreProntuario(), { wrapper: criarWrapper(client()) });
 
-    result.current.mutate({ nome: 'Fulano' } as never);
+    result.current.mutate({ valores: { nome: 'Fulano' } as never });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(container.auth.repo.atualizarNome).not.toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe('useConcluirPreProntuario', () => {
     const invalidar = jest.spyOn(qc, 'invalidateQueries');
     const { result } = await renderHook(() => useConcluirPreProntuario(), { wrapper: criarWrapper(qc) });
 
-    result.current.mutate({ nome: 'Fulano' } as never);
+    result.current.mutate({ valores: { nome: 'Fulano' } as never });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidar).toHaveBeenCalledWith({ queryKey: ['perfil', 'user-1'] });

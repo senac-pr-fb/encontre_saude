@@ -47,6 +47,16 @@ export interface PreProntuario {
   peso: number | null;
   altura: number | null;
   observacoes: string | null;
+
+  /** Contexto do histórico para quem atende; não passa pelo formulário. */
+  historicoRecente?: HistoricoRecenteDocumento;
+}
+
+export interface HistoricoRecenteDocumento {
+  /** Outros episódios dos últimos 30 dias, sem ligação com a queixa ("29/09 18:10 — dor no joelho (nível 1)"). */
+  outrasQueixas: string[];
+  /** Recorrência da queixa nos últimos 6 meses ("dor de cabeça: 3 episódios…"). */
+  recorrencia: string[];
 }
 
 /** Resultado de uma triagem recente, usado para pré-preencher a queixa. */

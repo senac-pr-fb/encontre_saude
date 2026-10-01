@@ -2,19 +2,30 @@ import { render, screen } from '@testing-library/react-native';
 import { PreviaDocumento } from '../PreviaDocumento';
 import { montarContexto } from '@domain/usecases/contexto';
 import { perfilVazio } from '@domain/entities/PerfilSaude';
-import type { InteracaoHistorico } from '@domain/entities/Triagem';
+import type { InteracaoHistorico, Triagem } from '@domain/entities/Triagem';
 
-const historico: InteracaoHistorico[] = [
-  {
-    id: 'h1',
-    quando: new Date().toISOString(),
-    descricao: 'Febre alta desde ontem à noite',
-    sintomas: [],
-    triagem: { nivel: 3, resumo: 'r', recomendacao: 'rec', primeirosSocorros: '', unidadeRecomendada: 'UBS', sintomas: ['febre', 'tosse'] },
-  },
-];
+const triagem: Triagem = {
+  nivel: 3,
+  resumo: 'r',
+  recomendacao: 'rec',
+  primeirosSocorros: '',
+  unidadeRecomendada: 'UBS',
+  sintomas: ['febre', 'tosse'],
+};
 
-const contexto = (alergias: string | null) =>
+const relato = (over: Partial<InteracaoHistorico> = {}): InteracaoHistorico => ({
+  id: 'h1',
+  quando: new Date().toISOString(),
+  descricao: 'Febre alta desde ontem à noite',
+  sintomas: [],
+  triagem,
+  episodioId: null,
+  rotulo: 'febre',
+  recorrencia: [],
+  ...over,
+});
+
+const contexto = (alergias: string | null, historico: InteracaoHistorico[] = [relato()]) =>
   montarContexto({
     perfil: {
       ...perfilVazio('user-1'),
@@ -31,7 +42,8 @@ const contexto = (alergias: string | null) =>
 
 describe('PreviaDocumento', () => {
   it('mostra a queixa com o nível e os dados formatados', async () => {
-    await render(<PreviaDocumento contexto={contexto('Dipirona')} />);
+    const c = contexto('Dipirona');
+    await render(<PreviaDocumento contexto={c} episodio={c.episodioAtual} />);
 
     expect(screen.getByText('Nível 3 · Urgente')).toBeTruthy();
     expect(screen.getByText('Febre alta desde ontem à noite')).toBeTruthy();
@@ -42,7 +54,38 @@ describe('PreviaDocumento', () => {
   });
 
   it('avisa quando a ficha não tem histórico clínico', async () => {
-    await render(<PreviaDocumento contexto={contexto(null)} />);
+    const c = contexto(null);
+    await render(<PreviaDocumento contexto={c} episodio={c.episodioAtual} />);
     expect(screen.getByText('Nada informado na sua ficha.')).toBeTruthy();
+  });
+
+  it('episódio com vários relatos mostra cada um', async () => {
+    const antes = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const c = contexto(null, [
+      relato({ id: 'h2', descricao: 'Agora com tosse', episodioId: 'h1' }),
+      relato({ quando: antes, descricao: 'Dor de cabeça forte' }),
+    ]);
+    await render(<PreviaDocumento contexto={c} episodio={c.episodioAtual} />);
+
+    expect(screen.getByText('Dor de cabeça forte')).toBeTruthy();
+    expect(screen.getByText('Agora com tosse')).toBeTruthy();
+    expect(screen.getByText(/^desde /)).toBeTruthy();
+  });
+
+  it('mostra recorrência e outras queixas quando houver', async () => {
+    const c = contexto(null);
+    await render(
+      <PreviaDocumento
+        contexto={c}
+        episodio={c.episodioAtual}
+        historicoRecente={{
+          recorrencia: ['dor de cabeça: 3 episódios anteriores em 6 meses'],
+          outrasQueixas: ['29/09 18:10 — dor no joelho (não urgente)'],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('• dor de cabeça: 3 episódios anteriores em 6 meses')).toBeTruthy();
+    expect(screen.getByText('• 29/09 18:10 — dor no joelho (não urgente)')).toBeTruthy();
   });
 });

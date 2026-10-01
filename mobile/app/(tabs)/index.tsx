@@ -4,7 +4,7 @@ import { Link, useLocalSearchParams } from 'expo-router';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import type { AnaliseTriagem, RespostaTriagem } from '@domain/entities/Triagem';
 import { LIMITE_RELATO } from '@domain/usecases/triagem';
-import { sugestoesParaFicha } from '@domain/usecases/perfil';
+import { sugestaoDeRecorrencia, sugestoesParaFicha } from '@domain/usecases/perfil';
 import { contextoParaFormulario } from '@domain/usecases/prontuario';
 import { Body, Button, Card, ErrorMessage, Input, Screen, Subtitle, SuccessMessage } from '@presentation/components/ui';
 import { CabecalhoAba } from '@presentation/components/features/navegacao/CabecalhoAba';
@@ -14,6 +14,7 @@ import { AvisoMedico, ChamarSamu } from '@presentation/components/features/triag
 import { HistoricoTriagem } from '@presentation/components/features/triagem/HistoricoTriagem';
 import { PerguntasTriagem } from '@presentation/components/features/triagem/PerguntasTriagem';
 import { SugestaoFicha } from '@presentation/components/features/triagem/SugestaoFicha';
+import { VinculoEpisodio } from '@presentation/components/features/triagem/VinculoEpisodio';
 import { CamposObrigatorios } from '@presentation/components/features/prontuario/CamposObrigatorios';
 import { useTriagem } from '@presentation/hooks/useTriagem';
 import { useContextoSaude } from '@presentation/hooks/useContextoSaude';
@@ -37,7 +38,7 @@ export default function HomeScreen() {
   const [perguntasEncerradas, setPerguntasEncerradas] = useState(false);
   const [sugestaoDispensada, setSugestaoDispensada] = useState(false);
 
-  const { analisar, historico, carregandoHistorico } = useTriagem();
+  const { analisar, desvincular, historico, carregandoHistorico } = useTriagem();
   const { contexto } = useContextoSaude();
   const atualizarFicha = useAtualizarFichaClinica();
   const completarDados = useCompletarObrigatorios();
@@ -47,7 +48,18 @@ export default function HomeScreen() {
   const segundaRodada = !!analisar.variables?.complemento;
   const resultado = analise?.triagem ?? null;
   const perguntasVisiveis = !!analise && analise.perguntas.length > 0 && !perguntasEncerradas;
-  const sugestoes = analise && contexto ? sugestoesParaFicha(analise.atualizacoes, contexto.perfil) : {};
+  // O que a pessoa contou e, se a queixa se repete, a anotação de recorrência.
+  const sugestoes =
+    analise && contexto
+      ? {
+          ...sugestoesParaFicha(analise.atualizacoes, contexto.perfil),
+          // Desfeita a ligação, o relato conta como um episódio novo.
+          ...sugestaoDeRecorrencia(
+            contexto.perfil,
+            desvincular.isSuccess ? { ...analise, episodioAnterior: null } : analise,
+          ),
+        }
+      : {};
   const faltantes = contexto?.faltantes ?? [];
   const pedirObrigatorios = faltantes.length > 0 && (completar === '1' || (!!resultado && !perguntasVisiveis));
 
@@ -55,6 +67,7 @@ export default function HomeScreen() {
     setPerguntasEncerradas(false);
     setSugestaoDispensada(false);
     atualizarFicha.reset();
+    desvincular.reset();
     const descricao = relato.trim();
     analisar.mutate(
       { descricao },
@@ -130,6 +143,15 @@ export default function HomeScreen() {
           {/* Nível 5 é risco de vida: o atalho de ligação vem antes do texto. */}
           {resultado.nivel === 5 ? <ChamarSamu /> : null}
           <ResultadoTriagem triagem={resultado} />
+          {analise?.episodioAnterior && analise.historicoId ? (
+            <VinculoEpisodio
+              episodio={analise.episodioAnterior}
+              onDesfazer={() => desvincular.mutate(analise.historicoId!)}
+              desfazendo={desvincular.isPending}
+              desfeito={desvincular.isSuccess}
+            />
+          ) : null}
+          <ErrorMessage message={desvincular.error?.message} />
 
           {perguntasVisiveis ? (
             <PerguntasTriagem

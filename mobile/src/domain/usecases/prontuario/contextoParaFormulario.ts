@@ -1,5 +1,7 @@
 import type { PerfilSaude } from '@domain/entities/PerfilSaude';
-import type { TriagemDoHistorico } from '@domain/entities/ContextoSaude';
+import type { Episodio } from '@domain/entities/ContextoSaude';
+// Arquivo direto, não o índice: o índice de contexto importa este módulo.
+import { queixaDoEpisodio } from '@domain/usecases/contexto/episodios';
 import { dataParaBR } from '@core/utils/formato';
 import { FORMULARIO_VAZIO, type ProntuarioFormInput } from './prontuarioSchema';
 
@@ -7,14 +9,14 @@ const txt = (v: string | number | null | undefined) => (v === null || v === unde
 
 /**
  * Monta o pré-prontuário a partir do que o app já sabe: ficha de saúde, nome da
- * conta e, se houver, a triagem que vira a queixa. É a única conversão entre o
+ * conta e, se houver, o episódio que vira a queixa (linha do tempo dos relatos). É a única conversão entre o
  * contexto de saúde e o formulário — o documento automático e a edição manual
  * partem daqui.
  */
 export function contextoParaFormulario(
   perfil: PerfilSaude | null,
   nome: string | null,
-  triagem: TriagemDoHistorico | null = null,
+  episodio: Episodio | null = null,
 ): ProntuarioFormInput {
   return {
     ...FORMULARIO_VAZIO,
@@ -33,9 +35,9 @@ export function contextoParaFormulario(
     frequenciaCardiaca: txt(perfil?.sinaisVitais.frequenciaCardiaca),
     temperatura: txt(perfil?.sinaisVitais.temperatura),
     saturacaoOxigenio: txt(perfil?.sinaisVitais.saturacaoOxigenio),
-    // O relato é a queixa; os sintomas já vêm marcados pela IA.
-    queixaPrincipal: triagem?.descricao ?? '',
-    sintomas: triagem ? [...triagem.triagem.sintomas] : [],
+    // Os relatos do episódio são a queixa; os sintomas já vêm marcados pela IA.
+    queixaPrincipal: episodio ? queixaDoEpisodio(episodio) : '',
+    sintomas: episodio ? [...episodio.sintomas] : [],
   };
 }
 

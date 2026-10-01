@@ -5,10 +5,11 @@ import {
   VALIDADE_TRIAGEM_DOCUMENTO_MS,
   type CampoObrigatorio,
   type ContextoSaude,
+  type Episodio,
   type SituacaoDocumento,
-  type TriagemDoHistorico,
 } from '@domain/entities/ContextoSaude';
 import { contextoParaFormulario, etapaDados } from '@domain/usecases/prontuario';
+import { agruparEpisodios } from './episodios';
 
 interface Entrada {
   perfil: PerfilSaude;
@@ -18,8 +19,6 @@ interface Entrada {
   historico: InteracaoHistorico[];
   agora?: number;
 }
-
-const temTriagem = (i: InteracaoHistorico): i is TriagemDoHistorico => i.triagem !== null;
 
 /**
  * Obrigatórios que a ficha não cobre. Usa as regras da etapa 1 do formulário,
@@ -51,10 +50,16 @@ function calcularCompletude(perfil: PerfilSaude, faltantes: CampoObrigatorio[]):
   return Math.round((preenchidos / (CAMPOS_OBRIGATORIOS.length + CAMPOS_CLINICOS.length)) * 100);
 }
 
+// A validade conta do último relato do episódio: "agora febre" renova a dor de cabeça de ontem.
+const valido = (e: Episodio, agora: number) => agora - Date.parse(e.fim) < VALIDADE_TRIAGEM_DOCUMENTO_MS;
+
 export function montarContexto({ perfil, fichaExiste, nome, historico, agora = Date.now() }: Entrada): ContextoSaude {
-  const ultimaTriagem = historico.find(temTriagem) ?? null;
-  const quando = ultimaTriagem ? Date.parse(ultimaTriagem.quando) : NaN;
-  const triagemValida = Number.isFinite(quando) && agora - quando < VALIDADE_TRIAGEM_DOCUMENTO_MS;
+  const episodios = agruparEpisodios(historico);
+  const comTriagem = episodios.filter((e) => e.ultimaTriagem !== null);
+  const episodioAtual = comTriagem[0] ?? null;
+  const episodiosAtivos = comTriagem.filter((e) => valido(e, agora));
+  const ultimaTriagem = episodioAtual?.ultimaTriagem ?? null;
+  const triagemValida = !!episodioAtual && valido(episodioAtual, agora);
   const faltantes = camposFaltantes(perfil, nome);
 
   // A triagem vem primeiro: é na pré-triagem que os dados faltantes também são pedidos.
@@ -65,5 +70,17 @@ export function montarContexto({ perfil, fichaExiste, nome, historico, agora = D
 
   const completude = calcularCompletude(perfil, faltantes);
 
-  return { perfil, fichaExiste, nome, ultimaTriagem, triagemValida, faltantes, completude, situacao };
+  return {
+    perfil,
+    fichaExiste,
+    nome,
+    episodios,
+    episodioAtual,
+    episodiosAtivos,
+    ultimaTriagem,
+    triagemValida,
+    faltantes,
+    completude,
+    situacao,
+  };
 }

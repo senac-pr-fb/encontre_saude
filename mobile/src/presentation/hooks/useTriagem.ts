@@ -18,8 +18,15 @@ export function useTriagem() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['historico', userId] }),
   });
 
+  // "Não é isso": o relato sai do episódio; o contexto de saúde se recalcula com o histórico.
+  const desvincular = useMutation({
+    mutationFn: (historicoId: string) => container.triagem.desvincular.execute(historicoId).then(unwrap),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['historico', userId] }),
+  });
+
   return {
     analisar,
+    desvincular,
     historico: historico.data ?? [],
     carregandoHistorico: historico.isLoading,
     erroHistorico: historico.error?.message ?? null,

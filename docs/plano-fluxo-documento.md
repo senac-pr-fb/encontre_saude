@@ -113,7 +113,7 @@ etapas e a pessoa precisava passar por todas para gerar.
 - [x] `mesclarRascunho`: campo em branco no rascunho não apaga o que a ficha tem.
 - [x] O mesmo componente vira o "campo estruturado" da pré-triagem (fase 4).
 
-### Fase 4 — Pré-triagem com perguntas (Home + Edge Function) ✅ (código)
+### Fase 4 — Pré-triagem com perguntas (Home + Edge Function) ✅
 - [x] Edge Function lê `dados_saude` (JWT do usuário, RLS) e inclui resumo
       clínico no prompt. **Só colunas clínicas**: nome, CPF e telefone nunca
       são lidos; a data de nascimento vira idade dentro da função.
@@ -132,10 +132,45 @@ etapas e a pessoa precisava passar por todas para gerar.
       identificação (direto ao Supabase, sem IA) e **Gerar pré-prontuário**.
 - [x] Perfil → "Atualizar pela pré-triagem" abre a Home com `?completar=1`
       (obrigatórios faltantes no topo).
-- [ ] **Pendente (ambiente):** `supabase db push` (migration) e
-      `npm run deploy` em `services/` (função). Não foi possível rodar a função
-      localmente aqui (sem Deno/Docker) — validar com `npm run serve` ou após o
-      deploy.
+- [x] Migration aplicada e função publicada (validado junto com a 4.1).
+      Para publicar: `supabase login`, `supabase link` e, sem a senha do
+      banco, a migration pode ir pelo SQL Editor do painel.
+
+### Fase 4.1 — Episódios e recorrência ✅
+Problema: o contexto usava só a última triagem. "Dor de cabeça há 2 h" + "agora
+febre" é o mesmo problema; "dor no joelho por exercício" não é. E uma dor de
+cabeça que se repete há 6 meses é um sinal que nenhum relato isolado mostra.
+
+Decisões: continuação só com episódios das últimas **72 h**; recorrência em
+**6 meses**; PDF ganha "Outras queixas recentes" e "Recorrência"; "Não é isso"
+aparece só quando a IA ligou o relato a um anterior; recorrência alta sugere
+anotação nas observações da ficha (com confirmação).
+
+- [x] Migration: `historico_ia.episodio_id` (aponta para o primeiro relato do
+      episódio; null = é a raiz) e `historico_ia.queixa_rotulo` (rótulo curto
+      padronizado). Acréscimos — o site não muda.
+- [x] Edge Function: candidatos (episódios ≤ 72 h, máx. 5, só resumos) no
+      prompt; saída `relacao` + `episodio_relacionado` (validado no servidor
+      contra os candidatos) e `queixa_rotulo` (reaproveita rótulos existentes).
+- [x] Edge Function: recorrência calculada no servidor (6 meses, por episódio,
+      por sintoma e por rótulo; só contagens e datas, nenhum texto antigo),
+      enviada ao modelo e gravada no registro.
+- [x] Funciona sem a migration aplicada (cai para o comportamento da fase 4).
+- [x] App: histórico lê `episodio_id`, `queixa_rotulo` e a recorrência;
+      `montarContexto` agrupa por episódio (validade de 24 h conta do último
+      relato); queixa do documento vira linha do tempo; sintomas somados.
+- [x] `/documento`: "Sobre o que é este atendimento?" com mais de um episódio
+      ativo; PDF com "Outras queixas recentes" e "Recorrência".
+- [x] Home: "Entendemos como continuação de … · Não é isso" (desfaz a ligação).
+- [x] Recorrência ≥ 3 episódios do mesmo rótulo → sugestão de anotação nas
+      observações da ficha (`SugestaoFicha`).
+- [x] Testes: agrupamento, desconto da recorrência na continuação, texto do
+      documento, anotação na ficha, "Não é isso", escolha de episódio, seção
+      do PDF e fallback sem migration. Lógica da Edge Function conferida com os
+      cenários cabeça → febre → joelho (`historico.ts`) e checagem de tipos
+      contra os SDKs reais.
+- [x] Migrations aplicadas, função publicada e validada no aparelho
+      (enxaqueca → febre ligados no mesmo episódio).
 
 ### Fase 5 — Tela de perfil ✅
 - [x] `ResumoFicha`: barra de completude (`contexto.completude`: 5 obrigatórios

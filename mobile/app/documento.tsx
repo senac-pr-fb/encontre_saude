@@ -6,6 +6,7 @@ import { ProntuarioForm } from '@presentation/components/features/prontuario/Pro
 import { PreviaDocumento } from '@presentation/components/features/prontuario/PreviaDocumento';
 import { DocumentoPronto } from '@presentation/components/features/prontuario/DocumentoPronto';
 import { CamposObrigatorios } from '@presentation/components/features/prontuario/CamposObrigatorios';
+import { EscolhaEpisodio } from '@presentation/components/features/prontuario/EscolhaEpisodio';
 import { AvisoProntuario } from '@presentation/components/features/prontuario/AvisoProntuario';
 import { useDocumento } from '@presentation/hooks/useDocumento';
 import { useTelaProtegida } from '@presentation/hooks/useTelaProtegida';
@@ -21,10 +22,14 @@ export default function DocumentoScreen() {
     contexto,
     carregando,
     erro,
+    episodio,
+    escolherEpisodio,
+    historicoRecente,
     iniciaisEdicao,
     rascunhoRestaurado,
     dadosPessoaisOk,
     gerarDoContexto,
+    concluirEdicao,
     salvarRascunho,
     concluir,
     completar,
@@ -86,7 +91,7 @@ export default function DocumentoScreen() {
           <ProntuarioForm
             valoresIniciais={iniciaisEdicao}
             onRascunho={salvarRascunho}
-            onConcluir={(valores) => concluir.mutate(valores)}
+            onConcluir={concluirEdicao}
             gerando={concluir.isPending}
             erro={concluir.error?.message}
             pularDadosPessoais={dadosPessoaisOk}
@@ -104,7 +109,14 @@ export default function DocumentoScreen() {
       {situacao === 'pronto' ? (
         <>
           <Subtitle>Confira antes de gerar. O documento usa sua última pré-triagem e sua ficha de saúde.</Subtitle>
-          <PreviaDocumento contexto={contexto} />
+          {contexto.episodiosAtivos.length > 1 ? (
+            <EscolhaEpisodio
+              episodios={contexto.episodiosAtivos}
+              selecionado={episodio?.id ?? null}
+              onEscolher={escolherEpisodio}
+            />
+          ) : null}
+          <PreviaDocumento contexto={contexto} episodio={episodio} historicoRecente={historicoRecente} />
           <ErrorMessage message={concluir.error?.message} />
           <Button
             title="Gerar PDF"

@@ -1,8 +1,30 @@
 import type { PerfilSaude } from './PerfilSaude';
+import type { ColunaSintoma } from './PreProntuario';
 import type { InteracaoHistorico, Triagem } from './Triagem';
 
 /** Entrada do histórico que passou pela IA (as do pré-prontuário manual não têm triagem). */
 export type TriagemDoHistorico = InteracaoHistorico & { triagem: Triagem };
+
+/**
+ * Relatos sobre o mesmo problema ("dor de cabeça há 2 h" + "agora febre").
+ * Cada relato continua sendo um registro; o episódio só os agrupa.
+ */
+export interface Episodio {
+  /** Id do primeiro relato. */
+  id: string;
+  /** Em ordem cronológica. */
+  entradas: InteracaoHistorico[];
+  /** Último relato com triagem da IA: é o que define o nível. */
+  ultimaTriagem: TriagemDoHistorico | null;
+  inicio: string;
+  fim: string;
+  rotulo: string | null;
+  /** Soma dos sintomas de todos os relatos. */
+  sintomas: ColunaSintoma[];
+}
+
+/** Episódios cujo último relato passou de 30 dias não entram em "outras queixas". */
+export const JANELA_OUTRAS_QUEIXAS_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Campos sem os quais o documento não sai — os mesmos da etapa 1 do formulário. */
 export const CAMPOS_OBRIGATORIOS = ['nome', 'dataNascimento', 'cpf', 'sexo', 'telefone'] as const;
@@ -37,6 +59,13 @@ export interface ContextoSaude {
   fichaExiste: boolean;
   /** O nome pertence à conta, não à ficha. */
   nome: string | null;
+  /** Todos os episódios do histórico carregado, mais recente primeiro. */
+  episodios: Episodio[];
+  /** Episódio mais recente com triagem; é a queixa padrão do documento. */
+  episodioAtual: Episodio | null;
+  /** Episódios com triagem ainda válida (24 h). Mais de um: o documento pergunta qual. */
+  episodiosAtivos: Episodio[];
+  /** Última triagem do episódio atual. */
   ultimaTriagem: TriagemDoHistorico | null;
   triagemValida: boolean;
   faltantes: CampoObrigatorio[];

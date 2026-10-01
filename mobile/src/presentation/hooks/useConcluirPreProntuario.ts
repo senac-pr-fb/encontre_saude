@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { container } from '@core/di/container';
 import { unwrap } from '@core/utils/result';
-import type { PreProntuario } from '@domain/entities/PreProntuario';
+import type { HistoricoRecenteDocumento, PreProntuario } from '@domain/entities/PreProntuario';
 import type { ProntuarioFormOutput } from '@domain/usecases/prontuario';
 import { useAuth } from '@presentation/providers/AuthProvider';
 
@@ -15,8 +15,15 @@ export function useConcluirPreProntuario() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (valores: ProntuarioFormOutput) => {
-      const prontuario = valores as PreProntuario;
+    mutationFn: async ({
+      valores,
+      historicoRecente,
+    }: {
+      valores: ProntuarioFormOutput;
+      /** Outras queixas e recorrência: vão para o PDF, não para o banco. */
+      historicoRecente?: HistoricoRecenteDocumento;
+    }) => {
+      const prontuario: PreProntuario = { ...(valores as PreProntuario), historicoRecente };
       await container.prontuario.salvar.execute(usuario!.id, prontuario).then(unwrap);
 
       // O nome não tem coluna em `dados_saude`: ele pertence à conta. Quem se

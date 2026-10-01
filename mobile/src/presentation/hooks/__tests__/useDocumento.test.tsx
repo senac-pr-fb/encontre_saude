@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { container } from '@core/di/container';
 import { useContextoSaude } from '../useContextoSaude';
@@ -35,13 +35,16 @@ const historico: InteracaoHistorico[] = [
     descricao: 'Febre alta desde ontem à noite',
     sintomas: [],
     triagem: { nivel: 3, resumo: 'r', recomendacao: 'rec', primeirosSocorros: '', unidadeRecomendada: 'UBS', sintomas: ['febre'] },
+    episodioId: null,
+    rotulo: 'febre',
+    recorrencia: [],
   },
 ];
 
 const mutate = jest.fn();
 
-function comContexto(p: PerfilSaude) {
-  const contexto = montarContexto({ perfil: p, fichaExiste: true, nome: 'Maria Souza', historico });
+function comContexto(p: PerfilSaude, h: InteracaoHistorico[] = historico) {
+  const contexto = montarContexto({ perfil: p, fichaExiste: true, nome: 'Maria Souza', historico: h });
   (useContextoSaude as jest.Mock).mockReturnValue({ contexto, carregando: false, erro: null });
 }
 
@@ -61,15 +64,37 @@ describe('useDocumento', () => {
     gerou = result.current.gerarDoContexto();
 
     expect(gerou).toBe(true);
-    expect(mutate).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mutate).toHaveBeenCalledWith({
+      valores: expect.objectContaining({
         nome: 'Maria Souza',
         cpf: '12345678901',
         dataNascimento: '1990-05-10',
         queixaPrincipal: 'Febre alta desde ontem à noite',
         sintomas: ['febre'],
       }),
-    );
+      historicoRecente: { outrasQueixas: [], recorrencia: [] },
+    });
+  });
+
+  it('com dois episódios ativos, o escolhido vira a queixa e o outro vai para "outras queixas"', async () => {
+    const joelho: InteracaoHistorico = {
+      ...historico[0],
+      id: 'j1',
+      quando: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      descricao: 'Dor no joelho depois da corrida',
+      rotulo: 'dor no joelho',
+      triagem: { ...historico[0].triagem!, nivel: 1, sintomas: [] },
+    };
+    comContexto(perfil, [historico[0], joelho]);
+    const { result } = await renderHook(() => useDocumento());
+    await waitFor(() => expect(result.current.carregando).toBe(false));
+    expect(result.current.episodio?.id).toBe('h1');
+
+    await act(async () => result.current.escolherEpisodio('j1'));
+
+    expect(result.current.episodio?.id).toBe('j1');
+    expect(result.current.iniciaisEdicao?.queixaPrincipal).toBe('Dor no joelho depois da corrida');
+    expect(result.current.historicoRecente?.outrasQueixas).toEqual([expect.stringMatching(/febre \(urgente\)$/)]);
   });
 
   it('não gera quando um dado da ficha não passa na validação', async () => {

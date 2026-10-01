@@ -33,6 +33,26 @@ const secao = (titulo: string, conteudo: string) => `
     ${conteudo}
   </section>`;
 
+const lista = (rotulo: string, itens: string[]) =>
+  itens.length
+    ? `<div class="campo largo"><span class="rotulo">${rotulo}</span>${itens
+        .map((i) => `<span class="valor">• ${esc(i)}</span>`)
+        .join('')}</div>`
+    : '';
+
+/** Recorrência e outras queixas: contexto para quem atende, só quando há o que mostrar. */
+function historicoRecente(p: PreProntuario): string {
+  const h = p.historicoRecente;
+  if (!h || (h.recorrencia.length === 0 && h.outrasQueixas.length === 0)) return '';
+  return secao(
+    'Histórico recente (relatado no aplicativo)',
+    `<div class="grade">
+      ${lista('Recorrência nos últimos 6 meses', h.recorrencia)}
+      ${lista('Outras queixas recentes, sem relação com esta', h.outrasQueixas)}
+    </div>`,
+  );
+}
+
 function montarHtml(p: PreProntuario): string {
   const agora = new Date().toLocaleString('pt-BR');
   const sintomas = p.sintomas.length
@@ -88,6 +108,8 @@ function montarHtml(p: PreProntuario): string {
     </div>
     <div style="margin-top:6px">${sintomas}</div>`,
   )}
+
+  ${historicoRecente(p)}
 
   ${secao(
     'Sinais vitais',

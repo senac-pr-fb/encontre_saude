@@ -47,6 +47,18 @@ export interface Triagem {
   sintomas: ColunaSintoma[];
 }
 
+/**
+ * Quantas vezes uma queixa apareceu nos últimos 6 meses, contada por episódio
+ * (continuações não inflam a conta). Calculada pela Edge Function antes do relato.
+ */
+export interface ItemRecorrencia {
+  rotulo: string;
+  episodios: number;
+  ultimos30Dias: number;
+  ultimoEm: string;
+  nivelMax: number | null;
+}
+
 export interface InteracaoHistorico {
   id: string;
   quando: string;
@@ -54,6 +66,12 @@ export interface InteracaoHistorico {
   /** null quando o registro veio do pre-prontuario, que nao passa pela IA. */
   triagem: Triagem | null;
   sintomas: ColunaSintoma[];
+  /** Primeiro relato do episódio; null quando este registro é o início. */
+  episodioId: string | null;
+  /** Rótulo curto da queixa ("dor de cabeça"); null em registros antigos. */
+  rotulo: string | null;
+  /** Recorrência no momento da triagem (vai para o PDF). */
+  recorrencia: ItemRecorrencia[];
 }
 
 export const ehNivelValido = (n: number): n is NivelUrgencia => n >= 1 && n <= 5;
@@ -79,6 +97,8 @@ export interface AtualizacoesFicha {
   alergias: string | null;
   medicamentosEmUso: string | null;
   doencasPreexistentes: string | null;
+  /** Não vem da IA: anotação de recorrência sugerida pelo app. */
+  observacoes?: string | null;
 }
 
 /** Resultado de uma rodada da pré-triagem. */
@@ -89,6 +109,16 @@ export interface AnaliseTriagem {
   atualizacoes: AtualizacoesFicha;
   /** Registro do histórico; a segunda rodada atualiza o mesmo. */
   historicoId: string | null;
+  rotulo: string | null;
+  /** Episódio a que a IA ligou este relato; null quando é um problema novo. */
+  episodioAnterior: EpisodioAnterior | null;
+  recorrencia: ItemRecorrencia[];
+}
+
+export interface EpisodioAnterior {
+  id: string;
+  desde: string;
+  rotulo: string | null;
 }
 
 /** Segunda rodada: respostas às perguntas da primeira. */

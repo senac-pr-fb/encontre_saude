@@ -5,7 +5,7 @@ import type { TriagemRepository } from '@domain/repositories/TriagemRepository';
 import type { InteracaoHistorico } from '@domain/entities/Triagem';
 
 function criarRepoFake(): jest.Mocked<TriagemRepository> {
-  return { analisar: jest.fn(), historico: jest.fn() };
+  return { analisar: jest.fn(), historico: jest.fn(), desvincularEpisodio: jest.fn() };
 }
 
 describe('GetHistorico', () => {

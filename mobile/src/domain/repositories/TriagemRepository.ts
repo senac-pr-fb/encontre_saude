@@ -9,4 +9,6 @@ export interface TriagemRepository {
    */
   analisar(descricao: string, complemento?: ComplementoTriagem): Promise<Result<AnaliseTriagem, DomainError>>;
   historico(userId: string): Promise<Result<InteracaoHistorico[], DomainError>>;
+  /** Desfaz a ligação feita pela IA: o relato vira um episódio próprio. */
+  desvincularEpisodio(historicoId: string): Promise<Result<void, DomainError>>;
 }

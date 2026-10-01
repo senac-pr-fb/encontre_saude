@@ -6,7 +6,9 @@ import {
   mesclarRascunho,
   prontuarioSchema,
   type ProntuarioFormInput,
+  type ProntuarioFormOutput,
 } from '@domain/usecases/prontuario';
+import { historicoParaDocumento } from '@domain/usecases/contexto';
 import { useContextoSaude } from './useContextoSaude';
 import { useConcluirPreProntuario } from './useConcluirPreProntuario';
 import { useCompletarObrigatorios } from './useCompletarObrigatorios';
@@ -21,6 +23,7 @@ export function useDocumento() {
   const completar = useCompletarObrigatorios();
   // undefined enquanto o AsyncStorage não respondeu.
   const [rascunho, setRascunho] = useState<ProntuarioFormInput | null | undefined>(undefined);
+  const [episodioEscolhido, setEpisodioEscolhido] = useState<string | null>(null);
 
   useEffect(() => {
     let ativo = true;
@@ -32,17 +35,25 @@ export function useDocumento() {
     };
   }, []);
 
+  /**
+   * O episódio que vira a queixa: o escolhido entre os ativos ou, por padrão, o
+   * mais recente. Vencido não vira queixa: o que a pessoa sente já pode ser outra coisa.
+   */
+  const episodio = useMemo(() => {
+    if (!contexto) return null;
+    const escolhido = contexto.episodiosAtivos.find((e) => e.id === episodioEscolhido);
+    if (escolhido) return escolhido;
+    return contexto.triagemValida ? contexto.episodioAtual : null;
+  }, [contexto, episodioEscolhido]);
+
+  const historicoRecente = useMemo(
+    () => (contexto ? historicoParaDocumento(contexto.episodios, episodio) : undefined),
+    [contexto, episodio],
+  );
+
   const doContexto = useMemo(
-    () =>
-      contexto
-        ? contextoParaFormulario(
-            contexto.perfil,
-            contexto.nome,
-            // Triagem vencida não vira queixa: o que a pessoa sente já pode ser outra coisa.
-            contexto.triagemValida ? contexto.ultimaTriagem : null,
-          )
-        : null,
-    [contexto],
+    () => (contexto ? contextoParaFormulario(contexto.perfil, contexto.nome, episodio) : null),
+    [contexto, episodio],
   );
 
   const iniciaisEdicao = useMemo(
@@ -60,9 +71,14 @@ export function useDocumento() {
   const gerarDoContexto = useCallback(() => {
     const valido = doContexto ? prontuarioSchema.safeParse(doContexto) : null;
     if (!valido?.success) return false;
-    concluir.mutate(valido.data);
+    concluir.mutate({ valores: valido.data, historicoRecente });
     return true;
-  }, [doContexto, concluir]);
+  }, [doContexto, concluir, historicoRecente]);
+
+  const concluirEdicao = useCallback(
+    (valores: ProntuarioFormOutput) => concluir.mutate({ valores, historicoRecente }),
+    [concluir, historicoRecente],
+  );
 
   const salvarRascunho = useCallback((valores: ProntuarioFormInput) => {
     container.prontuario.rascunho.salvar(valores);
@@ -72,10 +88,14 @@ export function useDocumento() {
     contexto,
     carregando: carregando || rascunho === undefined,
     erro,
+    episodio,
+    escolherEpisodio: setEpisodioEscolhido,
+    historicoRecente,
     iniciaisEdicao,
     rascunhoRestaurado: !!rascunho,
     dadosPessoaisOk,
     gerarDoContexto,
+    concluirEdicao,
     salvarRascunho,
     concluir,
     completar,

@@ -128,3 +128,32 @@ describe('compartilharPdf', () => {
     });
   });
 });
+
+describe('gerarPdfProntuario — histórico recente', () => {
+  const html = () => (Print.printToFileAsync as jest.Mock).mock.calls.at(-1)[0].html as string;
+
+  beforeEach(() => {
+    (Print.printToFileAsync as jest.Mock).mockResolvedValue({ uri: 'file:///cache/x.pdf', base64: null });
+    (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(false);
+  });
+
+  it('inclui recorrência e outras queixas quando houver', async () => {
+    await gerarPdfProntuario({
+      ...preProntuario,
+      historicoRecente: {
+        recorrencia: ['dor de cabeça: 3 episódios anteriores em 6 meses'],
+        outrasQueixas: ['29/09 18:10 — dor no joelho <leve>'],
+      },
+    });
+
+    expect(html()).toContain('Histórico recente');
+    expect(html()).toContain('• dor de cabeça: 3 episódios anteriores em 6 meses');
+    // O texto vem do usuário: é escapado como o resto do documento.
+    expect(html()).toContain('dor no joelho &lt;leve&gt;');
+  });
+
+  it('sem histórico, a seção não aparece', async () => {
+    await gerarPdfProntuario({ ...preProntuario, historicoRecente: { recorrencia: [], outrasQueixas: [] } });
+    expect(html()).not.toContain('Histórico recente');
+  });
+});
