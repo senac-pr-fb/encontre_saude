@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ROTULOS_CAMPOS_OBRIGATORIOS } from '@domain/entities/ContextoSaude';
 import { Body, Button, Card, ErrorMessage, Screen, Subtitle } from '@presentation/components/ui';
 import { ProntuarioForm } from '@presentation/components/features/prontuario/ProntuarioForm';
 import { PreviaDocumento } from '@presentation/components/features/prontuario/PreviaDocumento';
 import { DocumentoPronto } from '@presentation/components/features/prontuario/DocumentoPronto';
+import { CamposObrigatorios } from '@presentation/components/features/prontuario/CamposObrigatorios';
 import { AvisoProntuario } from '@presentation/components/features/prontuario/AvisoProntuario';
 import { useDocumento } from '@presentation/hooks/useDocumento';
 import { useTelaProtegida } from '@presentation/hooks/useTelaProtegida';
-import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
+import { colors, spacing } from '@presentation/theme';
 
 /**
  * Destino do botão do meio. Não faz triagem: gera o documento a partir do
@@ -23,9 +23,11 @@ export default function DocumentoScreen() {
     erro,
     iniciaisEdicao,
     rascunhoRestaurado,
+    dadosPessoaisOk,
     gerarDoContexto,
     salvarRascunho,
     concluir,
+    completar,
     compartilhar,
     imprimir,
   } = useDocumento();
@@ -58,6 +60,8 @@ export default function DocumentoScreen() {
     );
   }
 
+  const { situacao, faltantes, ultimaTriagem } = contexto;
+
   if (editando) {
     return (
       <Screen>
@@ -69,19 +73,29 @@ export default function DocumentoScreen() {
           <AvisoProntuario icone="floppy-disk" texto="Recuperamos o que você havia preenchido antes." />
         ) : null}
 
-        <ProntuarioForm
-          valoresIniciais={iniciaisEdicao}
-          onRascunho={salvarRascunho}
-          onConcluir={(valores) => concluir.mutate(valores)}
-          gerando={concluir.isPending}
-          erro={concluir.error?.message}
-        />
+        {/* Primeiro só o que falta na ficha; salvo, o formulário abre já nos sintomas. */}
+        {faltantes.length > 0 ? (
+          <CamposObrigatorios
+            faltantes={faltantes}
+            valoresIniciais={iniciaisEdicao}
+            onSalvar={(dados) => completar.mutate(dados)}
+            salvando={completar.isPending}
+            erro={completar.error?.message}
+          />
+        ) : (
+          <ProntuarioForm
+            valoresIniciais={iniciaisEdicao}
+            onRascunho={salvarRascunho}
+            onConcluir={(valores) => concluir.mutate(valores)}
+            gerando={concluir.isPending}
+            erro={concluir.error?.message}
+            pularDadosPessoais={dadosPessoaisOk}
+          />
+        )}
         <Button title="Cancelar edição" variant="ghost" onPress={() => setEditando(false)} />
       </Screen>
     );
   }
-
-  const { situacao, faltantes, ultimaTriagem } = contexto;
 
   return (
     <Screen>
@@ -113,18 +127,13 @@ export default function DocumentoScreen() {
       ) : null}
 
       {situacao === 'dados-faltando' ? (
-        <>
-          <Card titulo="Faltam alguns dados">
-            <Body>Para gerar o documento, complete:</Body>
-            {faltantes.map((c) => (
-              <Text key={c} style={styles.item}>
-                • {ROTULOS_CAMPOS_OBRIGATORIOS[c]}
-              </Text>
-            ))}
-            <Body style={styles.nota}>Eles ficam salvos na sua ficha e não serão pedidos de novo.</Body>
-          </Card>
-          <Button title="Completar dados" onPress={() => setEditando(true)} />
-        </>
+        <CamposObrigatorios
+          faltantes={faltantes}
+          valoresIniciais={iniciaisEdicao}
+          onSalvar={(dados) => completar.mutate(dados)}
+          salvando={completar.isPending}
+          erro={completar.error?.message}
+        />
       ) : null}
 
       {situacao === 'sem-triagem' || situacao === 'triagem-vencida' ? (
@@ -147,6 +156,4 @@ export default function DocumentoScreen() {
 
 const styles = StyleSheet.create({
   centro: { marginTop: spacing.xl },
-  item: { fontFamily: fonts.medium, fontSize: fontSizes.sm, color: colors.text },
-  nota: { fontSize: fontSizes.xs, color: colors.textLight },
 });

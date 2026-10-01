@@ -75,3 +75,12 @@ describe('mesclarRascunho', () => {
     expect(f.sintomas).toEqual(['febre', 'fraqueza']);
   });
 });
+
+describe('mesclarRascunho — campos em branco', () => {
+  it('não apaga o que a ficha já tem (ex.: CPF salvo depois do rascunho)', () => {
+    const doContexto = contextoParaFormulario(perfil, 'Maria', null);
+    const f = mesclarRascunho(doContexto, { ...FORMULARIO_VAZIO, cpf: '', alergias: 'Poeira' });
+    expect(f.cpf).toBe('12345678901');
+    expect(f.alergias).toBe('Poeira');
+  });
+});

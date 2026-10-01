@@ -41,15 +41,18 @@ export function contextoParaFormulario(
 
 /**
  * Rascunho da edição manual por cima do contexto: o que a pessoa digitou vence.
- * Queixa e sintomas deixados em branco no rascunho continuam vindo da triagem.
+ * Campo deixado em branco no rascunho não apaga o que a ficha ou a triagem
+ * trazem — por exemplo, o CPF salvo depois que o rascunho foi gravado.
  */
 export function mesclarRascunho(
   doContexto: ProntuarioFormInput,
   rascunho: Partial<ProntuarioFormInput> | null,
 ): ProntuarioFormInput {
   if (!rascunho) return doContexto;
-  const base = { ...doContexto, ...rascunho };
-  if (!base.queixaPrincipal?.trim()) base.queixaPrincipal = doContexto.queixaPrincipal;
-  if (!base.sintomas?.length) base.sintomas = doContexto.sintomas;
-  return base;
+  const preenchidos = Object.fromEntries(
+    Object.entries(rascunho).filter(([, v]) =>
+      Array.isArray(v) ? v.length > 0 : typeof v === 'string' ? v.trim() !== '' : v != null,
+    ),
+  );
+  return { ...doContexto, ...preenchidos };
 }

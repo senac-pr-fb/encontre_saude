@@ -94,3 +94,13 @@ describe('ProntuarioForm — conclusão', () => {
     expect(dados.queixaPrincipal).toBe('Dor de cabeça forte há dois dias');
   });
 });
+
+describe('ProntuarioForm — pularDadosPessoais', () => {
+  it('começa nos sintomas e não volta para os dados pessoais', async () => {
+    await render(<ProntuarioForm {...propsPadrao({ pularDadosPessoais: true })} />);
+
+    expect(screen.getByPlaceholderText('Ex.: 2 dias, desde ontem à noite')).toBeTruthy();
+    expect(screen.queryByPlaceholderText('Como está no documento')).toBeNull();
+    expect(screen.queryByText('Voltar')).toBeNull();
+  });
+});

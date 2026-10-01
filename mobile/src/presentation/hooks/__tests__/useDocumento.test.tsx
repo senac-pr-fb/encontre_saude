@@ -18,6 +18,7 @@ jest.mock('@core/di/container', () => ({
 }));
 jest.mock('../useContextoSaude', () => ({ useContextoSaude: jest.fn() }));
 jest.mock('../useConcluirPreProntuario', () => ({ useConcluirPreProntuario: jest.fn() }));
+jest.mock('../useCompletarObrigatorios', () => ({ useCompletarObrigatorios: jest.fn() }));
 
 const perfil: PerfilSaude = {
   ...perfilVazio('user-1'),
@@ -95,5 +96,17 @@ describe('useDocumento', () => {
     const { result } = await renderHook(() => useDocumento());
     expect(result.current.carregando).toBe(true);
     expect(result.current.iniciaisEdicao).toBeNull();
+  });
+
+  it('só pula os dados pessoais quando eles passam na validação', async () => {
+    const { result } = await renderHook(() => useDocumento());
+    await waitFor(() => expect(result.current.carregando).toBe(false));
+    expect(result.current.dadosPessoaisOk).toBe(true);
+
+    // Rascunho com CPF incompleto: a etapa 1 precisa aparecer para corrigir.
+    (container.prontuario.rascunho.carregar as jest.Mock).mockResolvedValue({ cpf: '123' });
+    const outro = await renderHook(() => useDocumento());
+    await waitFor(() => expect(outro.result.current.carregando).toBe(false));
+    expect(outro.result.current.dadosPessoaisOk).toBe(false);
   });
 });

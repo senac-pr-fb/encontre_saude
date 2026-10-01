@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Controller, useForm, useWatch, type Control, type FieldPath } from 'react-hook-form';
+import { Controller, useForm, useWatch, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { SEXOS } from '@domain/entities/PerfilSaude';
+import { CAMPOS_OBRIGATORIOS } from '@domain/entities/ContextoSaude';
 import { rotuloDoSintoma } from '@domain/entities/PreProntuario';
 import {
   CAMPOS_POR_ETAPA,
@@ -10,11 +10,12 @@ import {
   type ProntuarioFormInput,
   type ProntuarioFormOutput,
 } from '@domain/usecases/prontuario';
-import { Body, Button, Card, ErrorMessage, Input, Opcoes } from '@presentation/components/ui';
-import { mascararCPF, mascararData, mascararTelefone } from '@core/utils/formato';
+import { Body, Button, Card, ErrorMessage } from '@presentation/components/ui';
 import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 import { Etapas } from './Etapas';
 import { SeletorSintomas } from './SeletorSintomas';
+import { CampoTexto } from './CampoTexto';
+import { CamposDadosPessoais } from './CamposDadosPessoais';
 
 const TOTAL_ETAPAS = 4;
 
@@ -24,12 +25,20 @@ interface Props {
   onConcluir: (valores: ProntuarioFormOutput) => void;
   gerando: boolean;
   erro?: string | null;
+  /** Ficha já tem os dados pessoais válidos: começa nos sintomas (eles ainda aparecem na revisão). */
+  pularDadosPessoais?: boolean;
 }
 
-type Campo = FieldPath<ProntuarioFormInput>;
-
-export function ProntuarioForm({ valoresIniciais, onRascunho, onConcluir, gerando, erro }: Props) {
-  const [etapa, setEtapa] = useState(1);
+export function ProntuarioForm({
+  valoresIniciais,
+  onRascunho,
+  onConcluir,
+  gerando,
+  erro,
+  pularDadosPessoais = false,
+}: Props) {
+  const primeiraEtapa = pularDadosPessoais ? 2 : 1;
+  const [etapa, setEtapa] = useState(primeiraEtapa);
   const { control, handleSubmit, trigger, getValues } = useForm<
     ProntuarioFormInput,
     unknown,
@@ -64,57 +73,20 @@ export function ProntuarioForm({ valoresIniciais, onRascunho, onConcluir, gerand
 
       {etapa === 1 ? (
         <Card titulo="Dados pessoais">
-          <Texto control={control} name="nome" label="Nome completo" placeholder="Como está no documento" />
-          <Texto
-            control={control}
-            name="dataNascimento"
-            label="Data de nascimento"
-            placeholder="dd/mm/aaaa"
-            keyboardType="number-pad"
-            mascara={mascararData}
-          />
-          <Texto
-            control={control}
-            name="cpf"
-            label="CPF"
-            placeholder="000.000.000-00"
-            keyboardType="number-pad"
-            mascara={mascararCPF}
-          />
-          <Controller
-            control={control}
-            name="sexo"
-            render={({ field, fieldState }) => (
-              <Opcoes
-                label="Sexo biológico"
-                opcoes={SEXOS}
-                value={field.value}
-                onChange={field.onChange}
-                error={fieldState.error?.message}
-              />
-            )}
-          />
-          <Texto
-            control={control}
-            name="telefone"
-            label="Telefone"
-            placeholder="(46) 99999-9999"
-            keyboardType="phone-pad"
-            mascara={mascararTelefone}
-          />
+          <CamposDadosPessoais control={control} campos={CAMPOS_OBRIGATORIOS} />
         </Card>
       ) : null}
 
       {etapa === 2 ? (
         <Card titulo="Sintomas">
-          <Texto
+          <CampoTexto
             control={control}
             name="queixaPrincipal"
             label="Queixa principal"
             placeholder="O que você está sentindo? Onde dói, com que intensidade..."
             multiline
           />
-          <Texto
+          <CampoTexto
             control={control}
             name="tempoSintoma"
             label="Há quanto tempo"
@@ -132,22 +104,22 @@ export function ProntuarioForm({ valoresIniciais, onRascunho, onConcluir, gerand
       {etapa === 3 ? (
         <>
           <Card titulo="Histórico clínico">
-            <Texto control={control} name="alergias" label="Alergias" placeholder="Ex.: dipirona, poeira" multiline />
-            <Texto
+            <CampoTexto control={control} name="alergias" label="Alergias" placeholder="Ex.: dipirona, poeira" multiline />
+            <CampoTexto
               control={control}
               name="medicamentosEmUso"
               label="Medicamentos em uso"
               placeholder="Nome e dosagem"
               multiline
             />
-            <Texto
+            <CampoTexto
               control={control}
               name="doencasPreexistentes"
               label="Doenças preexistentes"
               placeholder="Ex.: hipertensão, diabetes"
               multiline
             />
-            <Texto
+            <CampoTexto
               control={control}
               name="historicoFamiliar"
               label="Histórico familiar"
@@ -157,31 +129,31 @@ export function ProntuarioForm({ valoresIniciais, onRascunho, onConcluir, gerand
           </Card>
           <Card titulo="Sinais vitais">
             <Body>Preencha apenas o que tiver medido.</Body>
-            <Texto control={control} name="pressaoArterial" label="Pressão arterial" placeholder="120/80" />
-            <Texto
+            <CampoTexto control={control} name="pressaoArterial" label="Pressão arterial" placeholder="120/80" />
+            <CampoTexto
               control={control}
               name="frequenciaCardiaca"
               label="Frequência cardíaca (bpm)"
               placeholder="Ex.: 72"
               keyboardType="number-pad"
             />
-            <Texto
+            <CampoTexto
               control={control}
               name="temperatura"
               label="Temperatura (°C)"
               placeholder="Ex.: 36,5"
               keyboardType="decimal-pad"
             />
-            <Texto
+            <CampoTexto
               control={control}
               name="saturacaoOxigenio"
               label="Saturação de oxigênio (%)"
               placeholder="Ex.: 98"
               keyboardType="number-pad"
             />
-            <Texto control={control} name="peso" label="Peso (kg)" placeholder="Ex.: 70,5" keyboardType="decimal-pad" />
-            <Texto control={control} name="altura" label="Altura (m)" placeholder="Ex.: 1,75" keyboardType="decimal-pad" />
-            <Texto
+            <CampoTexto control={control} name="peso" label="Peso (kg)" placeholder="Ex.: 70,5" keyboardType="decimal-pad" />
+            <CampoTexto control={control} name="altura" label="Altura (m)" placeholder="Ex.: 1,75" keyboardType="decimal-pad" />
+            <CampoTexto
               control={control}
               name="observacoes"
               label="Observações"
@@ -197,7 +169,7 @@ export function ProntuarioForm({ valoresIniciais, onRascunho, onConcluir, gerand
       <ErrorMessage message={erro} />
 
       <View style={styles.acoes}>
-        {etapa > 1 ? (
+        {etapa > primeiraEtapa ? (
           <Button title="Voltar" variant="secondary" onPress={() => setEtapa((e) => e - 1)} style={styles.botao} />
         ) : null}
         {etapa < TOTAL_ETAPAS ? (
@@ -250,43 +222,10 @@ function Revisao({ control }: { control: Control<ProntuarioFormInput, unknown, P
   );
 }
 
-interface TextoProps {
-  control: Control<ProntuarioFormInput, unknown, ProntuarioFormOutput>;
-  name: Campo;
-  label: string;
-  placeholder?: string;
-  keyboardType?: React.ComponentProps<typeof Input>['keyboardType'];
-  multiline?: boolean;
-  mascara?: (v: string) => string;
-}
-
-function Texto({ control, name, label, mascara, multiline, ...rest }: TextoProps) {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field, fieldState }) => (
-        <Input
-          label={label}
-          value={typeof field.value === 'string' ? field.value : ''}
-          onChangeText={(t) => field.onChange(mascara ? mascara(t) : t)}
-          onBlur={field.onBlur}
-          error={fieldState.error?.message}
-          multiline={multiline}
-          numberOfLines={multiline ? 3 : undefined}
-          style={multiline ? styles.multiline : undefined}
-          {...rest}
-        />
-      )}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   form: { gap: spacing.md },
   acoes: { flexDirection: 'row', gap: spacing.sm },
   botao: { flex: 1 },
-  multiline: { minHeight: 90, textAlignVertical: 'top' },
   linha: { gap: 2 },
   rotulo: { fontFamily: fonts.medium, fontSize: fontSizes.xs, color: colors.textLight, textTransform: 'uppercase' },
   valor: { fontFamily: fonts.regular, fontSize: fontSizes.sm, color: colors.text },

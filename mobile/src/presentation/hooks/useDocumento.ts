@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { container } from '@core/di/container';
 import {
   contextoParaFormulario,
+  etapaDados,
   mesclarRascunho,
   prontuarioSchema,
   type ProntuarioFormInput,
 } from '@domain/usecases/prontuario';
 import { useContextoSaude } from './useContextoSaude';
 import { useConcluirPreProntuario } from './useConcluirPreProntuario';
+import { useCompletarObrigatorios } from './useCompletarObrigatorios';
 
 /**
  * Tela do botão do meio. O documento sai direto do contexto de saúde; a edição
@@ -16,6 +18,7 @@ import { useConcluirPreProntuario } from './useConcluirPreProntuario';
 export function useDocumento() {
   const { contexto, carregando, erro } = useContextoSaude();
   const concluir = useConcluirPreProntuario();
+  const completar = useCompletarObrigatorios();
   // undefined enquanto o AsyncStorage não respondeu.
   const [rascunho, setRascunho] = useState<ProntuarioFormInput | null | undefined>(undefined);
 
@@ -42,7 +45,12 @@ export function useDocumento() {
     [contexto],
   );
 
-  const iniciaisEdicao = doContexto && rascunho !== undefined ? mesclarRascunho(doContexto, rascunho) : null;
+  const iniciaisEdicao = useMemo(
+    () => (doContexto && rascunho !== undefined ? mesclarRascunho(doContexto, rascunho) : null),
+    [doContexto, rascunho],
+  );
+  // Com os dados pessoais válidos, a edição manual começa nos sintomas.
+  const dadosPessoaisOk = useMemo(() => !!iniciaisEdicao && etapaDados.safeParse(iniciaisEdicao).success, [iniciaisEdicao]);
 
   /**
    * Gera sem passar pelo formulário. Devolve false se algum dado da ficha não
@@ -66,9 +74,11 @@ export function useDocumento() {
     erro,
     iniciaisEdicao,
     rascunhoRestaurado: !!rascunho,
+    dadosPessoaisOk,
     gerarDoContexto,
     salvarRascunho,
     concluir,
+    completar,
     compartilhar: container.prontuario.pdf.compartilhar,
     imprimir: container.prontuario.pdf.imprimir,
   };

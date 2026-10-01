@@ -94,19 +94,24 @@ Histórico:
       removidos (ficaram sem uso). Home: "Gerar pré-prontuário" → `/documento`,
       aviso de 24 h no lugar do de 20 min.
 
-### Fase 4.0 — Pedir só os obrigatórios que faltam (antes do resto da fase 4)
-Problema: hoje, se falta só o CPF, "Completar dados" abre o formulário de 4
-etapas e a pessoa precisa passar por todas para gerar.
-- [ ] Componente `CamposObrigatorios`: renderiza **apenas** `contexto.faltantes`
-      (com máscara), valida com as regras de `etapaDados` e salva na ficha
-      (`SavePerfil`; nome via `atualizarNome`). Ao salvar, o contexto se
+### Fase 4.0 — Pedir só os obrigatórios que faltam ✅
+Problema: se faltava só o CPF, "Completar dados" abria o formulário de 4
+etapas e a pessoa precisava passar por todas para gerar.
+- [x] Caso de uso `CompletarObrigatorios` (domínio): valida só os campos
+      enviados com `etapaDados.pick`, relê a ficha e grava apenas eles; nome
+      vai para a conta (`atualizarNome`).
+- [x] `CamposDadosPessoais` (extraído da etapa 1) + `CampoTexto` (extraído do
+      `ProntuarioForm`): mesmos campos e máscaras nos dois lugares.
+- [x] Componente `CamposObrigatorios`: renderiza **apenas** `contexto.faltantes`;
+      sem sexo na ficha, nada vem pré-marcado. Ao salvar, o contexto se
       recalcula e a tela volta à prévia pronta para **Gerar PDF**.
-- [ ] `/documento`, estado `dados-faltando`: usa `CamposObrigatorios` no topo,
-      no lugar de abrir o formulário inteiro.
-- [ ] Edição manual: obrigatórios faltantes no topo; a etapa 1 (dados
-      pessoais) é pulada quando a ficha já tem tudo.
-- [ ] O mesmo componente é o "campo estruturado" da pré-triagem (dados de
-      identificação não passam pela IA — ver abaixo).
+- [x] `/documento`, estado `dados-faltando`: `CamposObrigatorios` no lugar de
+      abrir o formulário inteiro.
+- [x] Edição manual: primeiro só os obrigatórios faltantes; depois o
+      formulário abre nos sintomas (`pularDadosPessoais`) quando os dados
+      pessoais são válidos.
+- [x] `mesclarRascunho`: campo em branco no rascunho não apaga o que a ficha tem.
+- [ ] O mesmo componente vira o "campo estruturado" da pré-triagem (fase 4).
 
 ### Fase 4 — Pré-triagem com perguntas (Home + Edge Function)
 - [ ] Edge Function lê `dados_saude` (JWT do usuário, RLS) e inclui resumo
