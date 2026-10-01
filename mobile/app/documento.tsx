@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ROTULOS_CAMPOS_OBRIGATORIOS } from '@domain/entities/ContextoSaude';
 import { Body, Button, Card, ErrorMessage, Screen, Subtitle } from '@presentation/components/ui';
 import { ProntuarioForm } from '@presentation/components/features/prontuario/ProntuarioForm';
@@ -29,7 +29,9 @@ export default function DocumentoScreen() {
     compartilhar,
     imprimir,
   } = useDocumento();
-  const [editando, setEditando] = useState(false);
+  // O perfil abre direto na edição (`?modo=editar`): é o pré-prontuário manual.
+  const { modo } = useLocalSearchParams<{ modo?: string }>();
+  const [editando, setEditando] = useState(modo === 'editar');
   const [precisaAjuste, setPrecisaAjuste] = useState(false);
   useTelaProtegida('documento');
 

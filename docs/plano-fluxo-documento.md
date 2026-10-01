@@ -120,11 +120,14 @@ etapas e a pessoa precisa passar por todas para gerar.
       confirmação; botão **Gerar documento** → `/documento`.
 - [ ] Modo "completar dados" (chegando de `/documento` ou do perfil).
 
-### Fase 5 — Tela de perfil
-- [ ] Cartão de completude + **Atualizar pela pré-triagem** (principal).
-- [ ] Ficha de saúde (`PerfilForm` atual).
-- [ ] **Pré-prontuário manual** (secundário) → `/documento` em modo edição.
-- [ ] Sair.
+### Fase 5 — Tela de perfil ✅
+- [x] `ResumoFicha`: barra de completude (`contexto.completude`: 5 obrigatórios
+      + 6 campos clínicos), o que falta para o documento e **Atualizar pela
+      pré-triagem** (principal → `router.dismissTo('/')`, a Home).
+      **Provisório:** até a fase 4 leva à triagem comum, sem perguntas.
+- [x] Ficha de saúde (`PerfilForm` atual), abaixo do resumo.
+- [x] **Pré-prontuário manual** (secundário) → `/documento?modo=editar`.
+- [x] Sair.
 
 ### Fase 6 — Limpeza
 - [ ] Remover `triagemLocal`, `TriagemRecente`, `VALIDADE_TRIAGEM_MS` e a chave
@@ -136,7 +139,7 @@ etapas e a pessoa precisa passar por todas para gerar.
       `armazenamentoLocal`.
 - [ ] Atualizar `mobile/CLAUDE.md` se alguma regra de segurança mudar de lugar.
 
-Ordem: 1 → 2 → 3 → 5 → 4 → 6, um commit por fase. Até a fase 4, o modo
+Ordem: 1 → 2 → 3 → 5 → 4.0 → 4 → 6, um commit por fase. Até a fase 4, o modo
 "completar dados" pede os campos diretamente, sem IA.
 
 ## Regras que continuam valendo (`mobile/CLAUDE.md`)

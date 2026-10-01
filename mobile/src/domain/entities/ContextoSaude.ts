@@ -40,5 +40,7 @@ export interface ContextoSaude {
   ultimaTriagem: TriagemDoHistorico | null;
   triagemValida: boolean;
   faltantes: CampoObrigatorio[];
+  /** 0–100: obrigatórios válidos + histórico clínico preenchido. */
+  completude: number;
   situacao: SituacaoDocumento;
 }

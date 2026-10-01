@@ -35,6 +35,22 @@ function camposFaltantes(perfil: PerfilSaude, nome: string | null): CampoObrigat
   return CAMPOS_OBRIGATORIOS.filter((c) => comErro.has(c));
 }
 
+/** Além dos obrigatórios, o que mais ajuda a triagem e o atendimento. */
+const CAMPOS_CLINICOS = [
+  'peso',
+  'altura',
+  'alergias',
+  'medicamentosEmUso',
+  'doencasPreexistentes',
+  'historicoFamiliar',
+] as const satisfies readonly (keyof PerfilSaude)[];
+
+function calcularCompletude(perfil: PerfilSaude, faltantes: CampoObrigatorio[]): number {
+  const clinicos = CAMPOS_CLINICOS.filter((c) => perfil[c] !== null && String(perfil[c]).trim() !== '').length;
+  const preenchidos = CAMPOS_OBRIGATORIOS.length - faltantes.length + clinicos;
+  return Math.round((preenchidos / (CAMPOS_OBRIGATORIOS.length + CAMPOS_CLINICOS.length)) * 100);
+}
+
 export function montarContexto({ perfil, fichaExiste, nome, historico, agora = Date.now() }: Entrada): ContextoSaude {
   const ultimaTriagem = historico.find(temTriagem) ?? null;
   const quando = ultimaTriagem ? Date.parse(ultimaTriagem.quando) : NaN;
@@ -47,5 +63,7 @@ export function montarContexto({ perfil, fichaExiste, nome, historico, agora = D
   else if (!triagemValida) situacao = 'triagem-vencida';
   else if (faltantes.length > 0) situacao = 'dados-faltando';
 
-  return { perfil, fichaExiste, nome, ultimaTriagem, triagemValida, faltantes, situacao };
+  const completude = calcularCompletude(perfil, faltantes);
+
+  return { perfil, fichaExiste, nome, ultimaTriagem, triagemValida, faltantes, completude, situacao };
 }

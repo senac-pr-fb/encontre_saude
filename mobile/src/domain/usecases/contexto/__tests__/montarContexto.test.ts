@@ -80,4 +80,12 @@ describe('montarContexto', () => {
     expect(c.situacao).toBe('sem-triagem');
     expect(c.faltantes.length).toBeGreaterThan(0);
   });
+
+  it('completude: obrigatórios contam junto com o histórico clínico', () => {
+    expect(montar({ perfil: perfilVazio('user-1'), nome: null }).completude).toBe(0);
+    // 5 obrigatórios de 11 campos
+    expect(montar().completude).toBe(45);
+    const cheio = { ...perfilCompleto, peso: 60, altura: 1.6, alergias: 'Nenhuma', medicamentosEmUso: 'Nenhum', doencasPreexistentes: 'Nenhuma', historicoFamiliar: 'Diabetes' };
+    expect(montar({ perfil: cheio }).completude).toBe(100);
+  });
 });
