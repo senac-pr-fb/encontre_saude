@@ -1,5 +1,4 @@
 import type { TriagemRepository } from '@domain/repositories/TriagemRepository';
-import type { TriagemLocalRepository } from '@domain/repositories/ProntuarioRepository';
 import type { ComplementoTriagem } from '@domain/entities/Triagem';
 import { ValidationError } from '@domain/errors';
 import { err } from '@core/utils/result';
@@ -9,10 +8,7 @@ export const LIMITE_RELATO = 2000;
 export const LIMITE_RESPOSTA = 500;
 
 export class RealizarTriagem {
-  constructor(
-    private readonly repo: TriagemRepository,
-    private readonly local: TriagemLocalRepository,
-  ) {}
+  constructor(private readonly repo: TriagemRepository) {}
 
   /**
    * Primeira rodada: só o relato. Segunda rodada: o mesmo relato com as
@@ -41,19 +37,7 @@ export class RealizarTriagem {
       segundaRodada = { respostas, historicoId: complemento.historicoId };
     }
 
-    const resultado = segundaRodada ? await this.repo.analisar(texto, segundaRodada) : await this.repo.analisar(texto);
-
-    // Guarda para o pre-prontuario aproveitar nos proximos 20 minutos.
-    if (resultado.ok) {
-      const { triagem } = resultado.value;
-      await this.local.registrar({
-        textoUsuario: texto,
-        nivel: triagem.nivel,
-        resumo: triagem.resumo,
-        recomendacao: triagem.recomendacao,
-      });
-    }
-
-    return resultado;
+    // O resultado vai para o histórico no servidor; é de lá que o documento lê.
+    return segundaRodada ? this.repo.analisar(texto, segundaRodada) : this.repo.analisar(texto);
   }
 }

@@ -29,7 +29,6 @@ import { SupabaseTriagemRepository } from '@data/supabase/SupabaseTriagemReposit
 import { SupabaseProntuarioRepository } from '@data/supabase/SupabaseProntuarioRepository';
 import {
   criarRascunho,
-  triagemLocal,
   recuperacaoSenhaLocal,
   limparDadosLocais,
   CHAVE_RASCUNHO_PRONTUARIO,
@@ -80,7 +79,6 @@ export const container = {
   prontuario: {
     salvar: new SalvarConsulta(prontuarioRepo, perfilRepo),
     rascunho: criarRascunho<ProntuarioFormInput>(CHAVE_RASCUNHO_PRONTUARIO),
-    triagemLocal,
     pdf: prontuarioPdfService,
   },
   /** Conteudo editorial estatico (nao vem de banco). */
@@ -90,7 +88,7 @@ export const container = {
     dicasRapidas: DICAS_RAPIDAS,
   },
   triagem: {
-    realizar: new RealizarTriagem(triagemRepo, triagemLocal),
+    realizar: new RealizarTriagem(triagemRepo),
     historico: new GetHistorico(triagemRepo),
     desvincular: new DesvincularEpisodio(triagemRepo),
   },

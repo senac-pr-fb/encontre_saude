@@ -59,17 +59,5 @@ export interface HistoricoRecenteDocumento {
   recorrencia: string[];
 }
 
-/** Resultado de uma triagem recente, usado para pré-preencher a queixa. */
-export interface TriagemRecente {
-  textoUsuario: string;
-  nivel: number;
-  resumo: string;
-  recomendacao: string;
-  /** Epoch em ms; o site descarta depois de 20 minutos. */
-  quando: number;
-}
-
-export const VALIDADE_TRIAGEM_MS = 20 * 60 * 1000;
-
 export const rotuloDoSintoma = (coluna: ColunaSintoma): string =>
   SINTOMAS.find((s) => s.coluna === coluna)?.rotulo ?? coluna;

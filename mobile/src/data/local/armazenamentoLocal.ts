@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { RascunhoRepository, TriagemLocalRepository } from '@domain/repositories/ProntuarioRepository';
+import type { RascunhoRepository } from '@domain/repositories/ProntuarioRepository';
 import type { RecuperacaoSenhaRepository } from '@domain/repositories/AuthRepository';
-import { VALIDADE_TRIAGEM_MS, type TriagemRecente } from '@domain/entities/PreProntuario';
 
 /**
  * Equivalente ao localStorage do site. Guarda conveniencias do aparelho:
@@ -39,18 +38,6 @@ export function criarRascunho<T>(chave: string): RascunhoRepository<T> {
   };
 }
 
-const CHAVE_TRIAGEM = 'ultimaTriagemIA';
-
-export const triagemLocal: TriagemLocalRepository = {
-  async recente() {
-    const t = await ler<TriagemRecente>(CHAVE_TRIAGEM);
-    if (!t) return null;
-    // O site descarta depois de 20 minutos: passado isso, a queixa ja e outra.
-    return Date.now() - t.quando < VALIDADE_TRIAGEM_MS ? t : null;
-  },
-  registrar: (triagem) => gravar(CHAVE_TRIAGEM, { ...triagem, quando: Date.now() }),
-};
-
 export const CHAVE_RASCUNHO_PRONTUARIO = 'rascunhoPreProntuario';
 
 const CHAVE_RECUPERACAO_SENHA = 'recuperacaoSenhaPendente';
@@ -68,10 +55,18 @@ export const recuperacaoSenhaLocal: RecuperacaoSenhaRepository = {
 };
 
 /**
+ * Chaves que versões anteriores gravavam e esta não grava mais. Continuam na
+ * limpeza: quem atualizou o app ainda pode tê-las no aparelho.
+ *  - ultimaTriagemIA: última triagem para o pré-prontuário (atalho de 20 min),
+ *    substituída pelo histórico do servidor.
+ */
+const CHAVES_LEGADAS = ['ultimaTriagemIA'];
+
+/**
  * Tudo o que este arquivo grava pertence ao usuário logado. Toda chave nova
  * precisa entrar nesta lista, senão sobrevive ao logout.
  */
-const CHAVES_DO_USUARIO = [CHAVE_RASCUNHO_PRONTUARIO, CHAVE_TRIAGEM, CHAVE_RECUPERACAO_SENHA];
+const CHAVES_DO_USUARIO = [CHAVE_RASCUNHO_PRONTUARIO, CHAVE_RECUPERACAO_SENHA, ...CHAVES_LEGADAS];
 
 /**
  * Apaga os dados do usuário guardados no aparelho. Chamado no logout: sem isso,

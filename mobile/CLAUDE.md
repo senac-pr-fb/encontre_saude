@@ -47,12 +47,16 @@ onde foi pedido, e pedir de novo invalida o link anterior.
 
 Como o `usePreProntuario` dá prioridade ao rascunho sobre o perfil, o próximo
 usuário do aparelho recebia o formulário preenchido com os dados do anterior.
+(Hoje essa precedência está em `useDocumento` + `mesclarRascunho`.)
 
 **O que foi feito:** a criptografia não foi alterada, por decisão do projeto.
 Só foi adicionada limpeza.
 - `src/data/local/armazenamentoLocal.ts`: `limparDadosLocais()` apaga as chaves
-  de `CHAVES_DO_USUARIO` (rascunho, triagem e marca de recuperação). A sessão do
-  supabase-js não é tocada.
+  de `CHAVES_DO_USUARIO` (rascunho, marca de recuperação e as `CHAVES_LEGADAS`).
+  A sessão do supabase-js não é tocada.
+- A última triagem não é mais gravada no aparelho (o documento lê o histórico
+  do servidor), mas `ultimaTriagemIA` continua em `CHAVES_LEGADAS`: quem
+  atualizou o app ainda pode tê-la.
 - `src/data/pdf/prontuarioPdf.ts`: `limparPdfsGerados()` apaga os PDFs com o
   prefixo `pre-prontuario-` e a pasta `cache/Print`.
 - `src/domain/services/LimpezaLocalService.ts`: interface do domínio.
@@ -68,6 +72,7 @@ Só foi adicionada limpeza.
 **Não regredir:**
 - Toda chave nova gravada no AsyncStorage com dado do usuário entra em
   `CHAVES_DO_USUARIO`.
+- Chave que o app deixa de gravar vai para `CHAVES_LEGADAS`, não some da limpeza.
 - Todo arquivo novo gravado em disco precisa de limpeza equivalente.
 
 ## 7 — Troca de senha sem reautenticação (Média)
@@ -114,8 +119,8 @@ havia bloqueio de print, gravação de tela nem da miniatura no alternador de ap
 - `src/presentation/hooks/useTelaProtegida.ts`:
   - `useTelaProtegida(chave)`: `FLAG_SECURE` no Android; no iOS a gravação sai em branco;
   - `useProtecaoAlternadorApps()`: miniatura desfocada no iOS, chamado no `RootStack`.
-- `useTelaProtegida` foi aplicado em `(tabs)/perfil`, `(tabs)/index` (triagem),
-  `pre-prontuario` e `nova-senha`.
+- `useTelaProtegida` foi aplicado em `perfil`, `(tabs)/index` (triagem),
+  `documento` (que substituiu `pre-prontuario`) e `nova-senha`.
 
 **Não regredir:** toda tela nova que mostre dados de saúde, CPF ou senha chama
 `useTelaProtegida('<nome-da-tela>')`, com uma chave única por tela.
