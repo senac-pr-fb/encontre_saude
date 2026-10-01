@@ -58,13 +58,13 @@ export default function HomeScreen() {
           {/* Nível 5 é risco de vida: o atalho de ligação vem antes do texto. */}
           {resultado.nivel === 5 ? <ChamarSamu /> : null}
           <ResultadoTriagem triagem={resultado} />
-          <Link href="/pre-prontuario" asChild>
-            <Button title="Gerar pré-prontuário com esta triagem" variant="secondary" />
+          <Link href="/documento" asChild>
+            <Button title="Gerar pré-prontuário" variant="secondary" />
           </Link>
           <View style={styles.dica}>
             <FontAwesome6 name="circle-info" size={11} color={colors.textLight} />
             <Text style={styles.dicaTexto}>
-              A queixa já vem preenchida com este resultado se você abrir o pré-prontuário nos próximos 20 minutos.
+              Esta triagem vira a queixa do seu pré-prontuário pelas próximas 24 horas — também pelo botão do meio.
             </Text>
           </View>
         </>

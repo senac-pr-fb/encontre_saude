@@ -5,7 +5,7 @@ import { rotuloDoSintoma } from '@domain/entities/PreProntuario';
 import { colors, fonts, fontSizes, radius, shadows, spacing } from '@presentation/theme';
 
 /** Cor do nível é fundo; o texto precisa contrastar com amarelo e verde-limão. */
-const textoSobre = (nivel: keyof typeof NIVEIS) => (nivel === 2 || nivel === 3 ? colors.blackDark : colors.white);
+export const textoSobreNivel = (nivel: keyof typeof NIVEIS) => (nivel === 2 || nivel === 3 ? colors.blackDark : colors.white);
 
 export function ResultadoTriagem({ triagem }: { triagem: Triagem }) {
   const nivel = NIVEIS[triagem.nivel];
@@ -13,7 +13,7 @@ export function ResultadoTriagem({ triagem }: { triagem: Triagem }) {
   return (
     <View style={styles.card}>
       <View style={[styles.faixa, { backgroundColor: nivel.cor }]}>
-        <Text style={[styles.faixaTexto, { color: textoSobre(triagem.nivel) }]}>
+        <Text style={[styles.faixaTexto, { color: textoSobreNivel(triagem.nivel) }]}>
           Nível {triagem.nivel} · {nivel.texto}
         </Text>
       </View>

@@ -38,3 +38,18 @@ export function contextoParaFormulario(
     sintomas: triagem ? [...triagem.triagem.sintomas] : [],
   };
 }
+
+/**
+ * Rascunho da edição manual por cima do contexto: o que a pessoa digitou vence.
+ * Queixa e sintomas deixados em branco no rascunho continuam vindo da triagem.
+ */
+export function mesclarRascunho(
+  doContexto: ProntuarioFormInput,
+  rascunho: Partial<ProntuarioFormInput> | null,
+): ProntuarioFormInput {
+  if (!rascunho) return doContexto;
+  const base = { ...doContexto, ...rascunho };
+  if (!base.queixaPrincipal?.trim()) base.queixaPrincipal = doContexto.queixaPrincipal;
+  if (!base.sintomas?.length) base.sintomas = doContexto.sintomas;
+  return base;
+}

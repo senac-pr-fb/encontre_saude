@@ -5,5 +5,5 @@ import { Redirect } from 'expo-router';
  * cima das abas. Se a rota for aberta por link, leva ao mesmo destino.
  */
 export default function GerarDocumento() {
-  return <Redirect href="/pre-prontuario" />;
+  return <Redirect href="/documento" />;
 }

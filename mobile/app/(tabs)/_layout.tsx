@@ -32,7 +32,7 @@ export default function TabsLayout() {
         name="gerar-documento"
         options={{
           title: 'Pré-prontuário',
-          tabBarButton: () => <BotaoDocumento onPress={() => router.push('/pre-prontuario')} />,
+          tabBarButton: () => <BotaoDocumento onPress={() => router.push('/documento')} />,
         }}
       />
       <Tabs.Screen name="prevencao" options={tab('Prevenção', 'shield-heart')} />

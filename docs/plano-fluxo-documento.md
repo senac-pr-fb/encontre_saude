@@ -75,15 +75,38 @@ Histórico:
       não serve porque Farmácias usa `FlatList`. Ponto vermelho no avatar
       quando `contexto.faltantes` não está vazio.
 
-### Fase 3 — Tela `/documento` (botão do meio)
-- [ ] Estado `pronto`: prévia + **Gerar PDF** (reusa `concluir` e `prontuarioPdfService`).
-- [ ] Estado `dados-faltando`: lista o que falta + **Completar na pré-triagem**.
-- [ ] Estado `sem-triagem` / `triagem-vencida`: **Fazer pré-triagem** ou
+### Fase 3 — Tela `/documento` (botão do meio) ✅
+- [x] Estado `pronto`: `PreviaDocumento` + **Gerar PDF** (`gerarDoContexto`
+      valida com `prontuarioSchema`; se a ficha tiver dado fora da regra, abre a
+      edição com aviso).
+- [x] Estado `dados-faltando`: lista o que falta + **Completar dados**.
+      **Provisório:** abre a edição (etapa 1 = exatamente os obrigatórios);
+      na fase 4 passa a levar à pré-triagem.
+- [x] Estado `sem-triagem` / `triagem-vencida`: **Fazer pré-triagem** ou
       **Preencher manualmente**.
-- [ ] **Editar antes de gerar**: `ProntuarioForm` dentro da tela, pré-preenchido
-      pelo contexto; rascunho local só neste modo.
-- [ ] Sintomas do documento = `triagem.sintomas` da IA.
-- [ ] `useTelaProtegida('documento')`.
+- [x] **Editar antes de gerar**: `ProntuarioForm` dentro da tela;
+      `mesclarRascunho` põe o rascunho por cima do contexto.
+- [x] Sintomas do documento = `triagem.sintomas` da IA.
+- [x] `useTelaProtegida('documento')`.
+- [x] Gerador único extraído: `useConcluirPreProntuario`. Tela "Pronto" e
+      aviso extraídos (`DocumentoPronto`, `AvisoProntuario`).
+- [x] Adiantado da fase 6: rota `/pre-prontuario` e `usePreProntuario`
+      removidos (ficaram sem uso). Home: "Gerar pré-prontuário" → `/documento`,
+      aviso de 24 h no lugar do de 20 min.
+
+### Fase 4.0 — Pedir só os obrigatórios que faltam (antes do resto da fase 4)
+Problema: hoje, se falta só o CPF, "Completar dados" abre o formulário de 4
+etapas e a pessoa precisa passar por todas para gerar.
+- [ ] Componente `CamposObrigatorios`: renderiza **apenas** `contexto.faltantes`
+      (com máscara), valida com as regras de `etapaDados` e salva na ficha
+      (`SavePerfil`; nome via `atualizarNome`). Ao salvar, o contexto se
+      recalcula e a tela volta à prévia pronta para **Gerar PDF**.
+- [ ] `/documento`, estado `dados-faltando`: usa `CamposObrigatorios` no topo,
+      no lugar de abrir o formulário inteiro.
+- [ ] Edição manual: obrigatórios faltantes no topo; a etapa 1 (dados
+      pessoais) é pulada quando a ficha já tem tudo.
+- [ ] O mesmo componente é o "campo estruturado" da pré-triagem (dados de
+      identificação não passam pela IA — ver abaixo).
 
 ### Fase 4 — Pré-triagem com perguntas (Home + Edge Function)
 - [ ] Edge Function lê `dados_saude` (JWT do usuário, RLS) e inclui resumo
@@ -106,8 +129,8 @@ Histórico:
 ### Fase 6 — Limpeza
 - [ ] Remover `triagemLocal`, `TriagemRecente`, `VALIDADE_TRIAGEM_MS` e a chave
       `ultimaTriagemIA` (também de `CHAVES_DO_USUARIO`).
-- [ ] Remover rota `/pre-prontuario`, link "Gerar pré-prontuário com esta
-      triagem" e aviso de 20 min.
+- [x] Remover rota `/pre-prontuario`, link "Gerar pré-prontuário com esta
+      triagem" e aviso de 20 min (feito na fase 3).
 - [ ] `RealizarTriagem` sem repositório local.
 - [ ] Atualizar testes de `useTriagem`, `usePreProntuario`, `RealizarTriagem`,
       `armazenamentoLocal`.
