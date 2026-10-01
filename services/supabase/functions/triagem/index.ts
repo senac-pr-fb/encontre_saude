@@ -21,14 +21,14 @@
  * Privacidade: da ficha, só os dados clínicos entram no prompt. Nome, CPF,
  * telefone e data de nascimento nunca são enviados ao modelo (a idade sim).
  *
+ * O provedor de IA (Gemini) fica isolado em modelo.ts; o schema da resposta,
+ * em schema.ts.
+ *
  * Deploy:
- *   supabase secrets set ANTHROPIC_API_KEY=...
+ *   supabase secrets set GEMINI_API_KEY=...
  *   supabase functions deploy triagem
  */
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import Anthropic from 'npm:@anthropic-ai/sdk@^0.128.0';
-import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@^0.128.0/helpers/zod';
-import { z } from 'npm:zod@^4';
 import {
   agruparEpisodios,
   calcularRecorrencia,
@@ -41,73 +41,12 @@ import {
   type ItemRecorrencia,
   type LinhaHistorico,
 } from './historico.ts';
+import { MAX_PERGUNTAS, type Triagem } from './schema.ts';
+import { analisarComModelo } from './modelo.ts';
 
-const MODELO = 'claude-opus-5';
 const LIMITE_RELATO = 2000;
 const LIMITE_RESPOSTA = 500;
 const MAX_RESPOSTAS = 5;
-const MAX_PERGUNTAS = 3;
-
-/**
- * O formato da resposta é imposto pelo schema, não pedido no prompt: o modelo
- * não consegue devolver outra coisa. Isso dispensa o que o site precisa fazer
- * na mão — limpar cercas ```json, tratar campo ausente, validar o nível.
- *
- * As chaves de `sintomas` são exatamente as colunas de `sintomas_atendimento`.
- * Limites de quantidade (máx. de perguntas) ficam no código: a API não aplica
- * `maxItems`, e o SDK recusaria a resposta inteira se o modelo passasse dele.
- */
-const TriagemSchema = z.object({
-  nivel: z.number().int().min(1).max(5).describe('1 Não Urgente, 2 Pouco Urgente, 3 Urgente, 4 Muito Urgente, 5 Emergência'),
-  resumo: z.string().describe('Uma a duas frases sobre o que o relato indica, em linguagem simples'),
-  recomendacao: z.string().describe('O que a pessoa deve fazer agora, de forma direta'),
-  primeiros_socorros: z.string().describe('Cuidados imediatos possíveis em casa; string vazia se não houver'),
-  unidade_recomendada: z.string().describe('Onde procurar atendimento: autocuidado, farmácia, UBS, UPA ou hospital'),
-  sintomas: z.object({
-    febre: z.boolean(),
-    dor_de_cabeca: z.boolean(),
-    tosse: z.boolean(),
-    falta_de_ar: z.boolean(),
-    dor_no_peito: z.boolean(),
-    nausea_vomito: z.boolean(),
-    diarreia: z.boolean(),
-    dor_abdominal: z.boolean(),
-    dor_nas_costas: z.boolean(),
-    tontura: z.boolean(),
-    fraqueza: z.boolean(),
-    coriza: z.boolean(),
-  }),
-  perguntas: z
-    .array(
-      z.object({
-        campo: z
-          .enum(['alergias', 'medicamentos_em_uso', 'doencas_preexistentes', 'sintoma'])
-          .describe('O que a pergunta ajuda a esclarecer'),
-        pergunta: z.string().describe('Pergunta curta, direta, em linguagem simples'),
-      }),
-    )
-    .describe(`Até ${MAX_PERGUNTAS} perguntas de acompanhamento; lista vazia se não houver`),
-  atualizacoes_ficha: z
-    .object({
-      alergias: z.string().nullable(),
-      medicamentos_em_uso: z.string().nullable(),
-      doencas_preexistentes: z.string().nullable(),
-    })
-    .describe('Só o que o paciente afirmou explicitamente; null no que ele não disse'),
-  relacao: z
-    .enum(['novo', 'continuacao'])
-    .describe('continuacao se o relato é evolução de um dos relatos recentes listados; novo caso contrário'),
-  // Código (E1, E2…) e não enum: um enum por requisição recompilaria o schema a cada chamada.
-  episodio_relacionado: z
-    .string()
-    .nullable()
-    .describe('Código do relato recente (ex.: E1) quando relacao é continuacao; null quando é novo'),
-  queixa_rotulo: z
-    .string()
-    .describe('Rótulo da queixa principal em 2 a 4 palavras, minúsculas, termo leigo (ex.: "dor de cabeça", "dor no joelho")'),
-});
-
-type Triagem = z.infer<typeof TriagemSchema>;
 
 const INSTRUCOES = `Você é um assistente de triagem de sintomas de um aplicativo de saúde pública de Francisco Beltrão, no Paraná.
 
@@ -417,46 +356,10 @@ Deno.serve(async (req) => {
     );
   }
 
-  // 5. Claude, com a chave que só existe aqui
-  const chave = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!chave) return json({ erro: 'Serviço de triagem não configurado' }, 500);
-
-  const anthropic = new Anthropic({ apiKey: chave });
-
-  let triagem: Triagem;
-  try {
-    const resposta = await anthropic.messages.parse({
-      model: MODELO,
-      // A saída é curta e de formato fixo; não há por que reservar mais.
-      max_tokens: 2000,
-      system: INSTRUCOES,
-      // Classificação sobre um texto curto não exige raciocínio profundo.
-      output_config: { effort: 'low', format: zodOutputFormat(TriagemSchema) },
-      messages: [{ role: 'user', content: partes.join('\n\n') }],
-    });
-
-    // O modelo pode recusar por segurança; sem isto, leríamos conteúdo vazio.
-    if (resposta.stop_reason === 'refusal') {
-      console.error('[triagem] recusa:', resposta.stop_details);
-      return json({ erro: 'Não foi possível analisar este relato. Procure atendimento se os sintomas persistirem.' }, 422);
-    }
-    if (!resposta.parsed_output) {
-      console.error('[triagem] resposta sem saída estruturada:', resposta.stop_reason);
-      return json({ erro: 'Resposta da IA em formato inesperado' }, 502);
-    }
-
-    triagem = resposta.parsed_output;
-  } catch (e) {
-    if (e instanceof Anthropic.AuthenticationError) {
-      console.error('[triagem] chave inválida');
-      return json({ erro: 'Serviço de triagem não configurado' }, 500);
-    }
-    if (e instanceof Anthropic.RateLimitError) {
-      return json({ erro: 'Muitas consultas agora. Tente de novo em instantes' }, 429);
-    }
-    console.error('[triagem] falha na chamada:', e);
-    return json({ erro: 'Não foi possível analisar os sintomas agora' }, 502);
-  }
+  // 5. Modelo de IA (modelo.ts), com a chave que só existe aqui
+  const analise = await analisarComModelo(INSTRUCOES, partes.join('\n\n'));
+  if (!analise.ok) return json({ erro: analise.erro }, analise.status);
+  const triagem: Triagem = analise.triagem;
 
   // As regras das perguntas valem aqui também, não só no prompt.
   triagem.perguntas = segundaRodada || triagem.nivel === 5 ? [] : triagem.perguntas.slice(0, MAX_PERGUNTAS);

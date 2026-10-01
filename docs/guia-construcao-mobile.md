@@ -956,7 +956,7 @@ async analisar(descricao: string) {
 }
 ```
 
-O `supabase-js` envia o JWT do usuário automaticamente. O prompt, o schema da resposta e a chave da Anthropic **não existem no app** — vivem na Edge Function.
+O `supabase-js` envia o JWT do usuário automaticamente. O prompt, o schema da resposta e a chave do modelo (Gemini) **não existem no app** — vivem na Edge Function.
 
 `historico()` = `from('historico_ia').select('*, sintomas_atendimento(*)').eq('user_id', …).order('created_at', { ascending: false })`. O cache em `localStorage` do site deixa de existir: o histórico vem do banco (é o TanStack Query que cacheia).
 
@@ -1086,22 +1086,24 @@ Isso é o que torna a anon key segura no bundle: ela só dá o acesso que as pol
 
 ### 13.4 Edge Function `triagem`
 
-**Já implementada** em `services/supabase/functions/triagem/index.ts`. O README de `services/` tem o deploy, o fluxo e como testar com `curl`.
+**Já implementada** em `services/supabase/functions/triagem/`. O README de `services/` tem o deploy, o fluxo, os arquivos e como testar com `curl`. O provedor de IA fica isolado em `modelo.ts` (hoje, o Gemini).
 
 ```
-app (ou site)                  Supabase                        Anthropic
+app (ou site)                  Supabase                        Google
 ─────────────                  ──────────────────────────────  ─────────
 functions.invoke('triagem') ──▶ 1. valida o JWT (sem ele, 401)
-   com o JWT do usuário         2. lê a chave do secret ──────▶ Claude
+   com o JWT do usuário         2. lê a chave do secret ──────▶ Gemini
                                 3. grava o histórico          ◀─ resposta
         ◀── JSON ──────────     4. devolve o resultado
 ```
 
 ```bash
 cd services
-npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+npx supabase secrets set GEMINI_API_KEY=...
 npx supabase functions deploy triagem
 ```
+
+A chave da função é **nova e só do servidor**: não reaproveite a `VITE_API_KEY` do site, que já esteve exposta no bundle.
 
 `SUPABASE_URL` e `SUPABASE_ANON_KEY` são injetadas automaticamente. O cliente dentro da função usa o **JWT de quem chamou**, então as gravações continuam sujeitas ao RLS — a função não tem privilégio especial.
 
@@ -1123,9 +1125,9 @@ O site **ainda chama o Gemini direto do navegador**, então a `VITE_API_KEY` con
 - [x] Edge Function `triagem` escrita, com a chave só no servidor
 - [x] `mobile/.env` contém apenas valores públicos (Supabase + Firebase)
 - [x] Regras do Firestore: leitura pública em `pharmacies`, escrita bloqueada
-- [ ] `ANTHROPIC_API_KEY` cadastrada como secret e a função publicada
+- [ ] `GEMINI_API_KEY` (chave nova, de projeto com faturamento) cadastrada como secret e a função publicada
 - [ ] Site migrado para a Edge Function (seção 13.5)
-- [ ] **Chave antiga do Gemini revogada** — só depois do item acima
+- [ ] **Chave antiga do site (`VITE_API_KEY`) revogada** — só depois do item acima
 - [ ] `@google/generative-ai` e `VITE_API_KEY` removidos do `frontend/`
 - [ ] Redirect URLs do Supabase incluem `encontresaude://**`
 

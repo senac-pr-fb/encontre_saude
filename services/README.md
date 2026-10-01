@@ -7,7 +7,7 @@ services/
 └── supabase/
     ├── config.toml            # gerado por `supabase init`
     ├── functions/             # Edge Functions (Deno/TypeScript)
-    │   └── triagem/           # chama o Claude com a chave do servidor (ver guia, seção final)
+    │   └── triagem/           # chama o Gemini com a chave do servidor (ver guia, seção final)
     └── migrations/            # SQL versionado: tabelas, RLS, policies
 ```
 
@@ -24,36 +24,45 @@ O RLS já está habilitado nas três tabelas, com policies por `user_id`. Confir
 
 ## Edge Function `triagem`
 
-Analisa o relato de sintomas com o Claude e grava a consulta no histórico.
+Analisa o relato de sintomas com o Gemini e grava a consulta no histórico.
 
-**Existe para que a chave da Anthropic nunca entre num cliente.** O app manda só o texto; a chave, o prompt mestre e a gravação ficam no servidor.
+**Existe para que a chave do modelo nunca entre num cliente.** O app manda só o texto; a chave, o prompt mestre e a gravação ficam no servidor.
 
 ```
-app / site  ──POST { descricao } + JWT──▶  triagem
-                                            ├── valida o usuário (sem JWT, 401)
-                                            ├── chama o Claude com ANTHROPIC_API_KEY
-                                            ├── grava historico_ia + sintomas_atendimento
-            ◀────────── JSON ───────────────┘
+app  ──POST { descricao, respostas?, historico_id? } + JWT──▶  triagem
+                                   ├── valida o usuário (sem JWT, 401)
+                                   ├── lê a ficha (só colunas clínicas) e o histórico (6 meses)
+                                   ├── chama o Gemini com GEMINI_API_KEY
+                                   ├── grava historico_ia + sintomas_atendimento
+     ◀──────────────── JSON ───────┘
 ```
+
+| Arquivo | Papel |
+|---|---|
+| `index.ts` | Entrada, validação, prompt, decisão de episódio e gravação |
+| `schema.ts` | Formato da resposta (Zod): vira o JSON Schema enviado e valida a volta |
+| `modelo.ts` | **Única parte que conhece o provedor.** Trocar de IA é trocar este arquivo |
+| `historico.ts` | Episódios (72 h) e recorrência (6 meses), funções puras |
 
 Detalhes que valem saber:
 
-- O cliente Supabase da função usa o **JWT de quem chamou**, então as gravações continuam sujeitas ao RLS — a função não tem privilégio especial.
-- **Saída estruturada**: o formato é imposto por um schema Zod (`output_config.format`), não pedido no prompt. O modelo não consegue devolver outra coisa — some o trabalho que o site faz na mão de limpar cercas ```` ```json ````, tratar campo ausente e validar o nível.
-- **Modelo**: `claude-opus-5` com `effort: 'low'` — classificação de um texto curto não exige raciocínio profundo, e o esforço baixo corta bastante do custo. Para reduzir mais, trocar por `claude-sonnet-5` ou `claude-haiku-4-5` é uma linha.
-- **Recusa**: o modelo pode declinar um relato por segurança (`stop_reason: 'refusal'`); nesse caso a função responde 422 com orientação, em vez de devolver conteúdo vazio.
+- O cliente Supabase da função usa o **JWT de quem chamou**, então leituras e gravações continuam sujeitas ao RLS — a função não tem privilégio especial.
+- **Privacidade**: nome, CPF, telefone e data de nascimento nunca vão ao modelo (a idade sim). Do histórico vão só resumos recentes e contagens. A chamada usa `store: false`. Use uma chave de **projeto com faturamento ativo**: no plano gratuito da API do Gemini, o Google pode usar o conteúdo enviado para melhorar os produtos.
+- **Saída estruturada**: o schema Zod vira JSON Schema (`response_format`), e a resposta é validada pelo mesmo schema na volta. Os limites numéricos (nível 1–5) ficam na descrição e no Zod, não no schema enviado.
+- **Modelo**: `gemini-3.8-flash` (o Flash mais capaz entre os estáveis) com `thinking_level: 'medium'` — além do nível, o modelo decide se o relato continua um episódio recente e considera a recorrência. Para trocar sem deploy de código: `npx supabase secrets set GEMINI_MODEL=...`. O único acima dele hoje é o `gemini-3.1-pro-preview`, em preview: evitar em produção.
+- **Bloqueio**: interação não concluída (`status` diferente de `completed`, ex.: filtro de segurança) responde 422 com orientação, em vez de conteúdo vazio.
 - Falha ao gravar o histórico **não** derruba a resposta: a orientação já foi produzida e é o que o usuário precisa.
+- Quem manda só `{ descricao }` recebe o formato de sempre; perguntas, episódio e recorrência são campos a mais.
 
 ### Publicar
 
 ```bash
 cd services
-npx supabase functions new triagem          # só na primeira vez; o código já está versionado
-npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+npx supabase secrets set GEMINI_API_KEY=...
 npx supabase functions deploy triagem
 ```
 
-`SUPABASE_URL` e `SUPABASE_ANON_KEY` são injetadas automaticamente — não precisam de `secrets set`.
+`SUPABASE_URL` e `SUPABASE_ANON_KEY` são injetadas automaticamente — não precisam de `secrets set`. Sem a senha do banco, as migrations podem ser aplicadas pelo SQL Editor do painel (são idempotentes).
 
 ### Testar sem app
 
@@ -107,11 +116,11 @@ npx supabase functions serve nome --env-file .env.local
 npx supabase functions deploy nome
 
 # Secrets (só existem no servidor — nunca no app)
-npx supabase secrets set ANTHROPIC_API_KEY=...
+npx supabase secrets set GEMINI_API_KEY=...
 ```
 
 ## Regras
 
-1. **Nenhuma chave privada sai desta pasta.** `service_role` e chaves de terceiros (Anthropic) entram como *secrets*, nunca em código.
+1. **Nenhuma chave privada sai desta pasta.** `service_role` e chaves de terceiros (Gemini) entram como *secrets*, nunca em código.
 2. **Toda tabela tem RLS ligado.** Uma tabela sem policy é uma tabela pública para quem tiver a anon key.
 3. **Mudança de schema é migration.** Nada de alterar tabela só pelo dashboard sem gerar o SQL correspondente aqui.
