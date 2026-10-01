@@ -10,17 +10,21 @@ interface Props {
   onVoltar: () => void;
 }
 
+const FALHA_ARQUIVO = 'Não foi possível abrir o arquivo. Tente "Salvar ou imprimir PDF".';
+
 /** Concluído: o PDF já existe e a consulta está no histórico. */
 export function DocumentoPronto({ onImprimir, onCompartilhar, onVoltar }: Props) {
   const [erro, setErro] = useState<string | null>(null);
 
   // Sem o catch, uma falha aqui viraria rejeição não capturada em vez de mensagem.
+  // O texto do expo-print/expo-sharing não vai para a tela (regra 14 do CLAUDE.md).
   const executar = async (acao: () => Promise<void>) => {
     setErro(null);
     try {
       await acao();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível abrir o arquivo.');
+      if (__DEV__) console.log('[pdf] falha ao abrir o arquivo:', e);
+      setErro(FALHA_ARQUIVO);
     }
   };
 

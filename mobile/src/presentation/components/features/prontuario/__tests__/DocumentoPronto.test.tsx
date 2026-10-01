@@ -19,12 +19,13 @@ describe('DocumentoPronto', () => {
     expect(onVoltar).toHaveBeenCalledTimes(1);
   });
 
-  it('mostra a mensagem quando abrir o arquivo falha', async () => {
-    const onCompartilhar = jest.fn().mockRejectedValue(new Error('Arquivo indisponível'));
+  it('quando abrir o arquivo falha, mostra mensagem própria, não a do SDK', async () => {
+    const onCompartilhar = jest.fn().mockRejectedValue(new Error('ERR_FILE_SYSTEM: /data/user/0/... not readable'));
     await render(<DocumentoPronto onImprimir={jest.fn()} onCompartilhar={onCompartilhar} onVoltar={jest.fn()} />);
 
     await fireEvent.press(screen.getByText('Compartilhar arquivo'));
 
-    await waitFor(() => expect(screen.getByText('Arquivo indisponível')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Não foi possível abrir o arquivo/)).toBeTruthy());
+    expect(screen.queryByText(/ERR_FILE_SYSTEM/)).toBeNull();
   });
 });
