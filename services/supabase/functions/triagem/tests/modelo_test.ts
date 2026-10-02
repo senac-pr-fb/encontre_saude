@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'jsr:@std/assert@1';
-import { analisarComModelo, type Dependencias } from '../modelo.ts';
+import { analisarComModelo, provedorEscolhido, type Dependencias } from '../modelo.ts';
 
 const respostaValida = {
   nivel: 3,
@@ -30,6 +30,7 @@ function falso(
       chamadas.push({ chave, params: params as unknown as Record<string, unknown> });
       return resposta instanceof Error ? Promise.reject(resposta) : Promise.resolve(resposta);
     },
+    chamarClaude: () => Promise.reject(new Error('o Gemini é o provedor deste teste')),
   };
   return { deps, chamadas };
 }
@@ -103,4 +104,85 @@ Deno.test('erros do provedor viram as mensagens de sempre, sem detalhe interno',
     const { deps } = falso(erroHttp(http));
     assertEquals(await analisarComModelo('i', 'r', deps), { ok: false, status, erro });
   }
+});
+
+/** Claude falso: mesmo papel do Gemini falso acima. */
+function claudeFalso(
+  resposta: { stop_reason: string | null; parsed_output?: unknown; stop_details?: unknown } | Error,
+  env: Record<string, string> = { IA_PROVEDOR: 'anthropic', ANTHROPIC_API_KEY: 'sk-teste' },
+) {
+  const chamadas: { chave: string; params: Record<string, unknown> }[] = [];
+  const deps: Dependencias = {
+    env: (nome) => env[nome],
+    criarInteracao: () => Promise.reject(new Error('o Claude é o provedor deste teste')),
+    chamarClaude: (chave, params) => {
+      chamadas.push({ chave, params: params as unknown as Record<string, unknown> });
+      return resposta instanceof Error ? Promise.reject(resposta) : Promise.resolve(resposta);
+    },
+  };
+  return { deps, chamadas };
+}
+
+Deno.test('provedor: IA_PROVEDOR escolhe; vazio ou desconhecido cai no Gemini', () => {
+  const env = (valor?: string) => (nome: string) => (nome === 'IA_PROVEDOR' ? valor : undefined);
+  assertEquals(provedorEscolhido(env('anthropic')), 'anthropic');
+  assertEquals(provedorEscolhido(env(' Anthropic ')), 'anthropic');
+  assertEquals(provedorEscolhido(env('gemini')), 'gemini');
+  assertEquals(provedorEscolhido(env(undefined)), 'gemini');
+  assertEquals(provedorEscolhido(env('openai')), 'gemini');
+});
+
+Deno.test('Claude: sucesso devolve a triagem validada, com o mesmo schema', async () => {
+  const { deps } = claudeFalso({ stop_reason: 'end_turn', parsed_output: respostaValida });
+  const r = await analisarComModelo('instruções', 'relato', deps);
+  assert(r.ok);
+  assertEquals(r.triagem.queixa_rotulo, 'febre');
+});
+
+Deno.test('Claude: pedido com esforço baixo, fallback em recusa e modelo configurável', async () => {
+  const { deps, chamadas } = claudeFalso({ stop_reason: 'end_turn', parsed_output: respostaValida });
+  await analisarComModelo('instruções', 'relato', deps);
+
+  const { chave, params } = chamadas[0];
+  assertEquals(chave, 'sk-teste');
+  assertEquals(params.model, 'claude-opus-5-5');
+  assertEquals(params.system, 'instruções');
+  assertEquals((params.output_config as { effort: string }).effort, 'low');
+  assertEquals(params.fallbacks, 'default');
+  assertEquals(params.betas, ['server-side-fallback-2026-07-01']);
+
+  const outro = claudeFalso(
+    { stop_reason: 'end_turn', parsed_output: respostaValida },
+    { IA_PROVEDOR: 'anthropic', ANTHROPIC_API_KEY: 'k', ANTHROPIC_MODEL: 'claude-sonnet-5-5' },
+  );
+  await analisarComModelo('i', 'r', outro.deps);
+  assertEquals(outro.chamadas[0].params.model, 'claude-sonnet-5-5');
+});
+
+Deno.test('Claude: recusa (mesmo após o fallback) vira 422 com orientação', async () => {
+  const { deps } = claudeFalso({ stop_reason: 'refusal', stop_details: { category: 'bio' } });
+  const r = await analisarComModelo('i', 'r', deps);
+  assert(!r.ok);
+  assertEquals(r.status, 422);
+});
+
+Deno.test('Claude: sem chave, 500 sem chamar; chave inválida e limite com as mensagens de sempre', async () => {
+  const semChave = claudeFalso({ stop_reason: 'end_turn' }, { IA_PROVEDOR: 'anthropic' });
+  assertEquals((await analisarComModelo('i', 'r', semChave.deps)).ok, false);
+  assertEquals(semChave.chamadas.length, 0);
+
+  const invalida = claudeFalso(erroHttp(401));
+  assertEquals(await analisarComModelo('i', 'r', invalida.deps), { ok: false, status: 500, erro: 'Serviço de triagem não configurado' });
+  const limite = claudeFalso(erroHttp(429));
+  assertEquals((await analisarComModelo('i', 'r', limite.deps)) as unknown, {
+    ok: false,
+    status: 429,
+    erro: 'Muitas consultas agora. Tente de novo em instantes',
+  });
+});
+
+Deno.test('chave com espaço ou vazia (secret gravado errado) conta como ausente', async () => {
+  const { deps, chamadas } = falso({ status: 'completed' }, { GEMINI_API_KEY: '   ' });
+  assertEquals((await analisarComModelo('i', 'r', deps)).ok, false);
+  assertEquals(chamadas.length, 0);
 });

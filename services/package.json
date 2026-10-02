@@ -6,7 +6,6 @@
     "serve": "supabase functions serve triagem --env-file .env.local",
     "deploy": "supabase functions deploy triagem",
     "secrets": "supabase secrets list",
-    "logs": "supabase functions logs triagem",
     "test": "deno test --no-lock --node-modules-dir=none --allow-env supabase/functions",
     "check": "deno check --no-lock --node-modules-dir=none supabase/functions/triagem/index.ts"
   },

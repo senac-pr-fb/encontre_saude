@@ -24,7 +24,7 @@ O RLS já está habilitado nas três tabelas, com policies por `user_id`. Confir
 
 ## Edge Function `triagem`
 
-Analisa o relato de sintomas com o Gemini e grava a consulta no histórico.
+Analisa o relato de sintomas com IA (Gemini ou Claude, escolhidos por secret) e grava a consulta no histórico.
 
 **Existe para que a chave do modelo nunca entre num cliente.** O app manda só o texto; a chave, o prompt mestre e a gravação ficam no servidor.
 
@@ -32,7 +32,7 @@ Analisa o relato de sintomas com o Gemini e grava a consulta no histórico.
 app  ──POST { descricao, respostas?, historico_id? } + JWT──▶  triagem
                                    ├── valida o usuário (sem JWT, 401)
                                    ├── lê a ficha (só colunas clínicas) e o histórico (6 meses)
-                                   ├── chama o Gemini com GEMINI_API_KEY
+                                   ├── chama o provedor de IA (IA_PROVEDOR)
                                    ├── grava historico_ia + sintomas_atendimento
      ◀──────────────── JSON ───────┘
 ```
@@ -41,7 +41,7 @@ app  ──POST { descricao, respostas?, historico_id? } + JWT──▶  triagem
 |---|---|
 | `index.ts` | Entrada, validação, prompt, decisão de episódio e gravação |
 | `schema.ts` | Formato da resposta (Zod): vira o JSON Schema enviado e valida a volta |
-| `modelo.ts` | **Única parte que conhece o provedor.** Trocar de IA é trocar este arquivo |
+| `modelo.ts` | **Única parte que conhece os provedores** (Gemini e Claude), com o mesmo schema e as mesmas mensagens |
 | `historico.ts` | Episódios (72 h) e recorrência (6 meses), funções puras |
 | `regras.ts` | Entrada, o que da ficha vai ao modelo e o que se aceita da resposta dele (funções puras) |
 | `tests/` | Testes em Deno de `historico`, `regras` e `modelo` (com Gemini falso) |
@@ -51,7 +51,9 @@ Detalhes que valem saber:
 - O cliente Supabase da função usa o **JWT de quem chamou**, então leituras e gravações continuam sujeitas ao RLS — a função não tem privilégio especial.
 - **Privacidade**: nome, CPF, telefone e data de nascimento nunca vão ao modelo (a idade sim). Do histórico vão só resumos recentes e contagens. A chamada usa `store: false`. Use uma chave de **projeto com faturamento ativo**: no plano gratuito da API do Gemini, o Google pode usar o conteúdo enviado para melhorar os produtos.
 - **Saída estruturada**: o schema Zod vira JSON Schema (`response_format`), e a resposta é validada pelo mesmo schema na volta. Os limites numéricos (nível 1–5) ficam na descrição e no Zod, não no schema enviado.
-- **Modelo**: `gemini-3.8-flash` (o Flash mais capaz entre os estáveis) com `thinking_level: 'medium'` — além do nível, o modelo decide se o relato continua um episódio recente e considera a recorrência. Para trocar sem deploy de código: `npx supabase secrets set GEMINI_MODEL=...`. O único acima dele hoje é o `gemini-3.1-pro-preview`, em preview: evitar em produção.
+- **Provedor**: o secret `IA_PROVEDOR` escolhe `gemini` (padrão) ou `anthropic`. Trocar é só `npx supabase secrets set IA_PROVEDOR=anthropic` — sem deploy de código, e o app nunca precisa de rebuild. Cada provedor usa a sua chave (`GEMINI_API_KEY` / `ANTHROPIC_API_KEY`).
+- **Claude**: `claude-opus-5-5` com `effort: 'low'` e **fallback em recusa** (`fallbacks: 'default'`, beta `server-side-fallback-2026-07-01`): se um filtro de segurança recusar o relato, o servidor da Anthropic tenta outro modelo adequado antes de a função responder 422. Modelo configurável por `ANTHROPIC_MODEL`.
+- **Gemini**: `gemini-3.8-flash` (o Flash mais capaz entre os estáveis) com `thinking_level: 'medium'` — além do nível, o modelo decide se o relato continua um episódio recente e considera a recorrência. Para trocar sem deploy de código: `npx supabase secrets set GEMINI_MODEL=...`. O único acima dele hoje é o `gemini-3.1-pro-preview`, em preview: evitar em produção.
 - **Bloqueio**: interação não concluída (`status` diferente de `completed`, ex.: filtro de segurança) responde 422 com orientação, em vez de conteúdo vazio.
 - Falha ao gravar o histórico **não** derruba a resposta: a orientação já foi produzida e é o que o usuário precisa.
 - Quem manda só `{ descricao }` recebe o formato de sempre; perguntas, episódio e recorrência são campos a mais.
@@ -60,9 +62,14 @@ Detalhes que valem saber:
 
 ```bash
 cd services
-npx supabase secrets set GEMINI_API_KEY=...
+npx supabase secrets set GEMINI_API_KEY=...        # e/ou ANTHROPIC_API_KEY=...
+npx supabase secrets set IA_PROVEDOR=gemini         # ou anthropic
 npx supabase functions deploy triagem
 ```
+
+Secret gravado com espaço ou vazio conta como ausente e a função responde "Serviço de triagem não configurado" — o mesmo de chave recusada pelo provedor (401/403).
+
+**Logs**: painel do Supabase → Edge Functions → `triagem` → Logs. A função registra o motivo de cada falha (chave recusada, limite, recusa, resposta fora do schema); o CLI atual não tem comando de logs.
 
 `SUPABASE_URL` e `SUPABASE_ANON_KEY` são injetadas automaticamente — não precisam de `secrets set`. Sem a senha do banco, as migrations podem ser aplicadas pelo SQL Editor do painel (são idempotentes).
 
