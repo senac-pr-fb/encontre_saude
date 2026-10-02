@@ -17,12 +17,14 @@ Os três projetos compartilham o **mesmo backend Supabase**: mesmas tabelas, mes
 | Pasta | Stack | Como rodar |
 |---|---|---|
 | `frontend/` | Vite + supabase-js | `cd frontend && npm install && npm run dev` |
-| `mobile/` | Expo + expo-router + TypeScript | `cd mobile && npm install && npx expo start` |
-| `services/` | Supabase CLI (Deno para Edge Functions) | `cd services && npx supabase functions serve` |
+| `mobile/` | Expo + expo-router + TypeScript | `cd mobile && npm install && npx expo start --go` (Expo Go) |
+| `services/` | Supabase CLI + Deno (Edge Functions) | `cd services && npm install && npm test` · publicar: `npm run deploy` |
 
 ## Documentação
 
 - [Guia de construção do app mobile](docs/guia-construcao-mobile.md) — passo a passo da conversão do site para React Native com Clean Architecture.
+- [Plano do fluxo do pré-prontuário](docs/plano-fluxo-documento.md) — contexto de saúde, botão do meio, pré-triagem com perguntas, episódios e recorrência: decisões e estado de cada fase.
+- [mobile/README.md](mobile/README.md) e [mobile/CLAUDE.md](mobile/CLAUDE.md) — como rodar o app e as regras de segurança que não podem regredir.
 - [frontend/README.md](frontend/README.md) — detalhes do site e dos serviços Supabase.
 - [services/README.md](services/README.md) — o que vive no backend e como publicar.
 

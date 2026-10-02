@@ -141,20 +141,21 @@ mobile/
 │   │   ├── cadastro.tsx
 │   │   └── recuperar-senha.tsx
 │   ├── (tabs)/                       # substitui a sidebar do site
-│   │   ├── _layout.tsx               # Home · Socorros · Prevenção · Farmácias · Perfil
-│   │   ├── index.tsx                 # Home + triagem IA
+│   │   ├── _layout.tsx               # Home · Socorros · [Pré-prontuário] · Prevenção · Farmácias
+│   │   ├── index.tsx                 # Home + pré-triagem com IA
 │   │   ├── primeiros-socorros.tsx
+│   │   ├── gerar-documento.tsx       # só reserva o lugar do botão do meio
 │   │   ├── prevencao.tsx
-│   │   ├── farmacias.tsx
-│   │   └── perfil.tsx
-│   ├── pre-prontuario.tsx            # stack fora das tabs (fluxo multi-step)
+│   │   └── farmacias.tsx
+│   ├── documento.tsx                 # modal do botão do meio: prévia, PDF e edição manual
+│   ├── perfil.tsx                    # aberto pelo avatar do canto superior direito
 │   └── nova-senha.tsx                # visita 2 da recuperação de senha (aberta pelo link do e-mail)
 │
 ├── src/
 │   ├── domain/                       # núcleo. ZERO imports de RN, Expo ou Supabase
 │   │   ├── entities/                 # Usuario, PerfilSaude, Farmacia, Triagem, NivelUrgencia
 │   │   ├── repositories/             # interfaces (contratos)
-│   │   ├── usecases/                 # auth/, perfil/, farmacias/, triagem/
+│   │   ├── usecases/                 # auth/, perfil/, farmacias/, triagem/, prontuario/, contexto/
 │   │   └── errors/                   # DomainError, AuthError, ValidationError, NetworkError
 │   │
 │   ├── data/                         # implementa as interfaces do domain
@@ -168,7 +169,7 @@ mobile/
 │   │   ├── components/
 │   │   │   ├── ui/                   # Button, Input, PasswordInput, Card, Badge, Loading
 │   │   │   └── features/             # TriagemResultCard, FarmaciaCard, PerfilForm…
-│   │   ├── hooks/                    # useAuth, usePerfil, useFarmacias, useTriagem
+│   │   ├── hooks/                    # usePerfil, useTriagem, useContextoSaude, useDocumento…
 │   │   └── providers/                # AuthProvider.tsx, QueryProvider.tsx
 │   │
 │   └── core/
@@ -560,7 +561,8 @@ if (carregando) return null;            // splash continua visível
 <Stack screenOptions={{ headerShown: false }}>
   <Stack.Protected guard={!!usuario}>
     <Stack.Screen name="(tabs)" />
-    <Stack.Screen name="pre-prontuario" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="documento" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="perfil" />
   </Stack.Protected>
   <Stack.Protected guard={!usuario}>
     <Stack.Screen name="(auth)" />
@@ -574,7 +576,7 @@ Consequências nos passos seguintes: some toda lógica condicional "se logado" q
 
 Telas: `(auth)/login.tsx`, `(auth)/cadastro.tsx`, `(auth)/recuperar-senha.tsx`, `nova-senha.tsx` — finas: cada uma monta um formulário de `components/features/auth/` e liga às mutations de `hooks/useAuthActions.ts` (`signIn`, `signUp`, `signInWithGoogle`, `signOut`, `recuperarSenha`, `atualizarSenha`). Os formulários usam `react-hook-form` + os schemas `zod` de `domain/usecases/auth/schemas.ts`; `PasswordInput` com ícone de olho substitui `shared/toggle_senha.js`. Não há `router.push` no sucesso do login: o `Stack.Protected` troca o grupo sozinho quando o `AuthProvider` recebe `SIGNED_IN`.
 
-**Pronto quando:** abrir o app sem sessão cai no login; cria conta, loga, vê o e-mail na aba Perfil; desloga e volta ao login; loga com Google, recupera senha pelo e-mail abrindo o app. Fechar e reabrir o app mantém a sessão.
+**Pronto quando:** abrir o app sem sessão cai no login; cria conta, loga, vê o e-mail no Perfil (avatar do canto superior); desloga e volta ao login; loga com Google, recupera senha pelo e-mail abrindo o app. Fechar e reabrir o app mantém a sessão.
 
 ---
 
@@ -679,7 +681,7 @@ export function usePerfil() {
 }
 ```
 
-A tela `app/(tabs)/perfil.tsx` só orquestra: `PerfilForm` recebe `initial`, `onSubmit`, `salvando`. Como são muitos campos, use `ScrollView` com `KeyboardAvoidingView` e agrupe em seções (Dados pessoais · Hábitos · Condições · Sinais vitais), como no site.
+A tela `app/perfil.tsx` fica fora das abas e abre pelo avatar do canto superior direito (`CabecalhoAba` + `BotaoPerfil`, que mostra um ponto quando faltam dados obrigatórios). Ela só orquestra: no topo, `ResumoFicha` (completude, o que falta para o documento, **Atualizar pela pré-triagem** como ação principal e **Pré-prontuário manual** como alternativa); abaixo, `PerfilForm`, agrupado em seções (Dados pessoais · Hábitos · Condições · Sinais vitais), como no site.
 
 **Pronto quando:** abrir Perfil carrega os dados salvos pelo site; salvar no app reflete no site.
 
@@ -837,9 +839,44 @@ Resultado: **9 tópicos** de primeiros socorros (cada um com seu vídeo), **10 d
 
 ## 10. Pré-prontuário
 
-**Objetivo:** substituir o formulário de 4 etapas de `pre_prontuario.js` (683 linhas, o maior arquivo do site).
+**Objetivo:** substituir o formulário de 4 etapas de `pre_prontuario.js` (683 linhas, o maior arquivo do site). No app, porém, o documento **não começa num formulário**: ele sai do que o app já sabe — a ficha de saúde e a pré-triagem. O formulário continua existindo, como edição manual opcional.
 
-### As etapas
+> O desenho completo, com as decisões de cada fase, está em [plano-fluxo-documento.md](plano-fluxo-documento.md).
+
+### Onde fica na navegação
+
+| Onde | Papel |
+|---|---|
+| **Botão do meio da navbar** (`BotaoDocumento`, maior que as abas) | Abre `/documento` por cima das abas. Não faz triagem: gera o PDF ou diz o que falta. |
+| **Home** (`(tabs)/index.tsx`) | A pré-triagem (passo 11). Ao terminar, "Gerar pré-prontuário" leva ao mesmo `/documento`. |
+| **Perfil** (avatar no canto superior direito, `app/perfil.tsx`) | Resumo da ficha com a pré-triagem como ação principal; "Pré-prontuário manual" abre `/documento?modo=editar`. |
+
+### O contexto de saúde
+
+`montarContexto` (domínio, função pura) junta a ficha (`dados_saude`), o nome da conta e o histórico (`historico_ia`) num `ContextoSaude`. O hook `useContextoSaude` só lê o cache do TanStack Query: salvar a ficha, fazer uma triagem ou gerar um documento atualiza as queries, e o contexto se recalcula sozinho — não há estado próprio.
+
+| Campo | O que é |
+|---|---|
+| `episodios` | Relatos agrupados por problema (passo 11). O mais recente com triagem é o `episodioAtual`. |
+| `episodiosAtivos` | Episódios com triagem válida: **24 h a partir do último relato** do episódio. |
+| `faltantes` | Obrigatórios do documento que a ficha não tem (nome, nascimento, CPF, sexo, telefone), pelas mesmas regras da etapa 1 do formulário. |
+| `completude` | 0–100: obrigatórios + histórico clínico preenchido. Aparece no perfil. |
+| `situacao` | `sem-triagem` · `triagem-vencida` · `dados-faltando` · `pronto` — decide o que o botão do meio mostra. |
+
+### A tela `/documento`
+
+| Situação | O que aparece |
+|---|---|
+| `pronto` | Prévia (queixa com nível, dados, histórico clínico, histórico recente) → **Gerar PDF** · Editar antes de gerar |
+| `dados-faltando` | **Só os campos que faltam** (`CamposObrigatorios`): faltando o CPF, aparece só o CPF |
+| `sem-triagem` / `triagem-vencida` | Fazer pré-triagem · Preencher manualmente |
+| mais de um episódio ativo | "**Sobre o que é este atendimento?**" antes da prévia |
+
+- **Um gerador só:** a prévia e a edição manual terminam em `useConcluirPreProntuario` — grava a consulta, sincroniza a ficha, gera o PDF e limpa o rascunho.
+- **Queixa:** um relato fica como está; um episódio com vários relatos vira linha do tempo (`queixaDoEpisodio`). Os sintomas são a soma do que a IA marcou.
+- **Obrigatórios:** `CompletarObrigatorios` valida só os campos enviados, relê a ficha e grava apenas eles. Sem sexo na ficha, nenhuma opção vem pré-marcada.
+
+### A edição manual (o formulário de 4 etapas)
 
 | Etapa | Campos | Validação (a mesma do site) |
 |---|---|---|
@@ -848,54 +885,65 @@ Resultado: **9 tópicos** de primeiros socorros (cada um com seu vídeo), **10 d
 | 3. Histórico clínico | alergias, medicamentos, doenças, histórico familiar + 6 sinais vitais | limites iguais aos do perfil |
 | 4. Revisão | resumo do que será enviado | — |
 
-Um único `react-hook-form` cobre as quatro; `trigger(CAMPOS_POR_ETAPA[n])` valida só os campos da etapa antes de avançar. Os 12 sintomas são a lista fixa que casa com as colunas de `sintomas_atendimento`.
+Um único `react-hook-form` cobre as quatro; `trigger(CAMPOS_POR_ETAPA[n])` valida só os campos da etapa antes de avançar.
+
+- **Pré-preenchido pelo contexto** (`contextoParaFormulario`): ficha, nome da conta e o episódio escolhido.
+- **Pula a etapa 1** quando os dados pessoais já são válidos; se faltar algum, primeiro aparecem só os que faltam.
+- **Rascunho automático** no AsyncStorage (o app pode ir para segundo plano a qualquer momento). `mesclarRascunho`: o que foi digitado vence, mas campo em branco no rascunho não apaga o que a ficha tem.
+- **Nome do paciente:** não existe coluna para ele em `dados_saude` — ele pertence à conta. Quem se cadastrou por e-mail não tem nome, então o app guarda em `user_metadata` o nome digitado. O site pede o nome toda vez.
 
 > A data de nascimento ganhou validação real: o site só verifica se o campo está preenchido, aceitando `31/02/2001` ou uma data no futuro.
-
-### As automações do formulário
-
-1. **Pré-preenchimento** pela ficha de saúde (`usePerfil`) e pelo nome da conta (`useAuth`).
-2. **Nome do paciente:** não existe coluna para ele em `dados_saude` — ele pertence à conta. Quem se cadastrou por e-mail não tem nome (só o login Google traz um), então o app guarda em `user_metadata` o nome digitado no prontuário, e nas próximas vezes ele já vem preenchido. O site pede o nome toda vez.
-3. **Rascunho automático:** o site grava no `localStorage` a cada tecla e restaura ao voltar; no app, AsyncStorage. Num formulário de 4 etapas no celular — onde o app pode ir para segundo plano a qualquer momento — isso deixa de ser conveniência e vira necessidade.
-4. **Ponte triagem → prontuário:** a última triagem da IA fica guardada por 20 minutos e preenche a queixa principal com relato, nível e recomendação. É a melhor ideia do site e passa despercebida. Quem escreve é o passo 11 (`triagemLocal.registrar`); o prontuário só lê.
-
-Precedência: **rascunho > perfil**, e a triagem só entra se a queixa ainda estiver vazia. Quem digitou algo e saiu do app não quer o próprio texto substituído pelo cadastro.
 
 ### Ao concluir
 
 ```
 salvarConsulta  →  historico_ia + sintomas_atendimento (dados_clinicos em jsonb)
 sincronizar     →  dados_saude, preservando o que o formulário não cobre
-gerar PDF       →  expo-print
+gerar PDF       →  expo-print (com "Histórico recente": recorrência e outras queixas)
 compartilhar    →  expo-sharing
 ```
 
 > **O site apaga dados aqui também:** ao gerar o PDF ele chama `profileService.saveProfile` com apenas os campos do formulário, zerando o resto da ficha. O `SalvarConsulta` carrega o perfil atual e sobrescreve só o que foi informado.
 
-**PDF: `expo-print` em vez de jsPDF.** O site desenha o documento coordenada a coordenada (~130 linhas de `doc.text(x, y)`, com controle manual de quebra de página). No app, o documento é HTML e o motor de impressão do sistema gera o A4: o layout vira CSS, a paginação é automática e mudar o visual não exige recalcular posições.
+**PDF: `expo-print` em vez de jsPDF.** O site desenha o documento coordenada a coordenada (~130 linhas de `doc.text(x, y)`). No app, o documento é HTML e o motor de impressão do sistema gera o A4: o layout vira CSS e a paginação é automática. Todo texto vindo do usuário ou da IA é escapado.
 
-**Entrega: duas saídas reais, não canais simulados.** A etapa 4 do site pede e-mail ou WhatsApp, valida o formato — e então apenas mostra um toast dizendo "envio simulado". Replicar isso criaria expectativa falsa. O app oferece:
+**Entrega: duas saídas reais, não canais simulados.** A etapa 4 do site pede e-mail ou WhatsApp e então só mostra "envio simulado". O app oferece:
 
 | Botão | Como funciona | Onde funciona |
 |---|---|---|
-| **Salvar ou imprimir PDF** | `Print.printAsync` abre o diálogo do sistema, com "Salvar como PDF" no Android e a folha de compartilhamento no iOS | Expo Go **e** build |
+| **Salvar ou imprimir PDF** | `Print.printAsync` abre o diálogo do sistema | Expo Go **e** build |
 | **Compartilhar arquivo** | `Sharing.shareAsync` abre o menu nativo (e-mail, WhatsApp, salvar) | Só em build |
 
-> **O arquivo impresso é ilegível no Expo Go.** O `printToFileAsync` grava em `cache/Print/`, **fora** da sandbox do app quando se roda no Expo Go — tanto a API de arquivos quanto o compartilhamento recusam lê-lo (`isn.t readable`, `Not allowed to read file under given URL`). A saída é não ler a origem: pedir `base64: true` e gravar o PDF no `documentDirectory` com `writeAsStringAsync`. Num build isso não seria necessário, mas não custa nada e dá ao arquivo um nome decente — que é o que o destinatário vê.
+> **O arquivo impresso é ilegível no Expo Go.** O `printToFileAsync` grava em `cache/Print/`, fora da sandbox do app no Expo Go. A saída é pedir `base64: true` e gravar o PDF no `documentDirectory` com `writeAsStringAsync` — o que ainda dá ao arquivo um nome decente.
 
-> A impressão continua sendo a ação principal por não tocar o sistema de arquivos: o HTML vai direto para o motor de impressão. Rodando no Expo Go, a tela explica em uma linha por que o compartilhamento pode falhar (`ehExpoGo`, de `core/config/ambiente.ts`).
+> Falhas do `expo-print`/`expo-sharing` aparecem com mensagem própria; o texto do SDK só vai para o log em desenvolvimento (regra 14 do `mobile/CLAUDE.md`).
 
-> Se um dia o envio automático por e-mail for necessário, ele é uma Edge Function com o PDF anexado — não um campo de formulário no app.
-
-**Pronto quando:** as 4 etapas navegam e validam, o rascunho sobrevive a fechar o app, o PDF abre no visualizador do sistema e a consulta aparece no histórico do Supabase.
+**Pronto quando:** o botão do meio mostra o estado certo para cada situação; com ficha completa e triagem válida, o PDF sai direto da prévia; faltando só o CPF, só o CPF é pedido; a edição manual abre nos sintomas quando a ficha está completa; a consulta aparece no histórico do Supabase.
 
 ---
 
 ## 11. Triagem de sintomas
 
-**Objetivo:** substituir `sintomas_ai/api.js` + `sintomas.js` na Home.
+**Objetivo:** substituir `sintomas_ai/api.js` + `sintomas.js` na Home — e ir além: a pré-triagem conversa, usa a ficha e o histórico como contexto e alimenta o documento.
 
-> **Depende da Edge Function `triagem` publicada.** O código dela está em `services/supabase/functions/triagem/`; o deploy e os detalhes estão no [README de services](../services/README.md).
+> **Depende da Edge Function `triagem` publicada** (hoje com o Gemini). O código está em `services/supabase/functions/triagem/`; deploy, arquivos e testes estão no [README de services](../services/README.md).
+
+### Como a conversa funciona
+
+1. A pessoa descreve o que sente. A função manda ao modelo, junto com o relato, um **resumo clínico da ficha**, os **relatos das últimas 72 h** e a **recorrência dos últimos 6 meses**.
+2. Vem a orientação (nível, recomendação, primeiros socorros). No nível 5, o botão de ligar para o SAMU aparece antes do texto.
+3. Se faltar algo útil, a IA faz **até 3 perguntas**. Responder é opcional; as respostas refazem a análise e atualizam **o mesmo** registro do histórico.
+4. O que a pessoa contou e não está na ficha vira o cartão **"Atualizar sua ficha?"** — nada é gravado sem confirmação.
+5. Obrigatórios do documento que faltam são pedidos em campos próprios (`CamposObrigatorios`), **sem passar pela IA**.
+6. "Gerar pré-prontuário" leva ao `/documento` (passo 10).
+
+### Episódios e recorrência
+
+Relatos sobre o mesmo problema formam um **episódio**: "dor de cabeça há 2 h" + "agora febre" é um só; "dor no joelho depois da corrida" é outro.
+
+- A IA sugere a ligação (`relacao` + código `E1…E5` de um relato recente); **a função só aceita códigos que ela mesma enviou**. Cada relato continua sendo uma linha de `historico_ia`, com `episodio_id` apontando para o primeiro.
+- Na Home aparece "Entendemos como continuação de … · **Não é isso**" — a pessoa pode desfazer a ligação (`DesvincularEpisodio`).
+- A recorrência é **contada por episódio** (continuações não inflam a conta) e por sintoma/rótulo. A partir de 3 episódios da mesma queixa, o app sugere anotar nas observações da ficha (com confirmação).
 
 ### Domain
 
@@ -908,69 +956,44 @@ export const NIVEIS = {
   4: { cor: '#FF771C', texto: 'Muito Urgente', resumo: '…', conduta: '…' },
   5: { cor: '#D51717', texto: 'Emergência',    resumo: '…', conduta: '…' },
 } as const;
-export type NivelUrgencia = keyof typeof NIVEIS;
 ```
 
 > No site esses dados estão em **dois lugares** que precisam ser mantidos em sincronia na mão: as cores em `api.js` e os textos em `create_feedback.js`. Aqui viram um objeto só.
 
-```ts
-// Os sintomas são a lista de colunas, não 12 booleanos soltos:
-// reaproveita SINTOMAS de PreProntuario e casa com `sintomas_atendimento`.
-export interface Triagem {
-  nivel: NivelUrgencia;
-  resumo: string;
-  recomendacao: string;
-  primeirosSocorros: string;
-  unidadeRecomendada: string;
-  sintomas: ColunaSintoma[];
-}
-
-export interface InteracaoHistorico {
-  id: string;
-  quando: string;
-  descricao: string;
-  /** null quando o registro veio do pré-prontuário, que não passa pela IA. */
-  triagem: Triagem | null;
-  sintomas: ColunaSintoma[];
-}
-```
+| Tipo | Papel |
+|---|---|
+| `Triagem` | Nível, resumo, recomendação, primeiros socorros, unidade e sintomas (lista de colunas de `sintomas_atendimento`) |
+| `AnaliseTriagem` | Uma rodada: `triagem` + `perguntas` + `atualizacoes` (sugestões para a ficha) + `historicoId` + `episodioAnterior` + `recorrencia` |
+| `InteracaoHistorico` | Um registro do histórico, com `episodioId`, `rotulo` e a recorrência gravada; `triagem` é `null` nos pré-prontuários |
 
 ```ts
 // src/domain/repositories/TriagemRepository.ts
 export interface TriagemRepository {
-  analisar(descricao: string): Promise<Result<Triagem, DomainError>>;
+  analisar(descricao: string, complemento?: ComplementoTriagem): Promise<Result<AnaliseTriagem, DomainError>>;
   historico(userId: string): Promise<Result<InteracaoHistorico[], DomainError>>;
+  desvincularEpisodio(historicoId: string): Promise<Result<void, DomainError>>;
 }
 ```
 
-`RealizarTriagem.execute(descricao)` valida o tamanho (10 a 2000 caracteres), delega — e, no sucesso, chama `triagemLocal.registrar()`. **É esse registro que alimenta a ponte para o pré-prontuário** (passo 10): a triagem fica guardada por 20 minutos e preenche a queixa principal.
+`RealizarTriagem` valida o relato (10 a 2000 caracteres) e, na segunda rodada, as respostas (pelo menos uma, até 500 caracteres cada). Nada é guardado no aparelho: o documento lê a triagem do histórico do servidor.
 
 ### Data
 
-```ts
-// src/data/supabase/SupabaseTriagemRepository.ts
-async analisar(descricao: string) {
-  const { data, error } = await this.supabase.functions.invoke('triagem', { body: { descricao } });
-  if (error) return err(toDomainError(error));
-  return ok(triagemMapper.toEntity(data));
-}
-```
+`SupabaseTriagemRepository.analisar` chama `functions.invoke('triagem', { body })` — `{ descricao }` na primeira rodada, `{ descricao, respostas, historico_id }` na segunda. O `supabase-js` envia o JWT do usuário automaticamente. O prompt, o schema da resposta e a chave do modelo **não existem no app**.
 
-O `supabase-js` envia o JWT do usuário automaticamente. O prompt, o schema da resposta e a chave do modelo (Gemini) **não existem no app** — vivem na Edge Function.
-
-`historico()` = `from('historico_ia').select('*, sintomas_atendimento(*)').eq('user_id', …).order('created_at', { ascending: false })`. O cache em `localStorage` do site deixa de existir: o histórico vem do banco (é o TanStack Query que cacheia).
+- Os campos da conversa são opcionais no mapeamento: o app funciona com uma versão anterior da função (só sem perguntas e episódios).
+- `historico()` lê `historico_ia` com `sintomas_atendimento(*)`, mais `episodio_id` e `queixa_rotulo`. Sem a migration dessas colunas, cai para a consulta antiga e cada relato vira um episódio próprio.
 
 ### Presentation
 
-- `useTriagem()` — `useMutation` para analisar + `useQuery(['historico', userId])`. Como a Edge Function grava o histórico, basta invalidar a query no sucesso.
-- **Home:** aviso médico, campo de texto com contador, `ResultadoTriagem` com a faixa colorida do nível, e o histórico embaixo.
-- **Legenda dos 5 níveis:** no site fica sempre visível num painel lateral; no celular não cabe, então virou acordeão fechado por padrão.
-- **Nível 5:** aparece um botão de **ligar para o SAMU** acima do resultado. Numa emergência, ninguém deveria precisar ler três parágrafos para achar o telefone.
-- **Histórico unificado:** a tabela `historico_ia` recebe tanto triagens quanto pré-prontuários. Os do prontuário têm texto fixo no lugar do JSON da IA, então `triagem` fica `null` e o item aparece com selo próprio, em vez de quebrar o parse.
+- `useTriagem()` — `analisar` (com ou sem complemento) e `desvincular`; o histórico vem de `useHistorico()`, a mesma query que alimenta o contexto de saúde.
+- **Home:** aviso médico, relato com contador, `ResultadoTriagem`, `VinculoEpisodio`, `PerguntasTriagem`, `SugestaoFicha`, `CamposObrigatorios` e o histórico embaixo. Vindo do perfil (`?completar=1`), o que falta na ficha aparece no topo.
+- **Legenda dos 5 níveis:** acordeão fechado por padrão (no site é um painel lateral).
+- **Histórico unificado:** triagens e pré-prontuários na mesma tabela; os do prontuário aparecem com selo próprio, em vez de quebrar o parse.
 
-> Duas diferenças de contraste que importam: as cores dos níveis 2 e 3 (verde-limão e amarelo) são claras demais para texto branco — o `ResultadoTriagem` inverte para texto escuro nesses dois.
+> As cores dos níveis 2 e 3 (verde-limão e amarelo) são claras demais para texto branco — o `ResultadoTriagem` inverte para texto escuro nesses dois.
 
-**Pronto quando:** descrever sintomas devolve o card colorido, a interação aparece no histórico e em `historico_ia`, e abrir o pré-prontuário em seguida traz a queixa preenchida.
+**Pronto quando:** um relato devolve o card colorido e, se faltar algo, perguntas; "agora estou com febre" logo depois de uma dor de cabeça aparece como continuação e pode ser desfeita; a interação aparece em `historico_ia` uma vez só; o botão do meio usa essa triagem como queixa.
 
 ---
 
@@ -1145,19 +1168,19 @@ O site **ainda chama o Gemini direto do navegador**, então a `VITE_API_KEY` con
 | `config/supabaseClient.js` | `data/supabase/client.ts` (SecureStore adapter) |
 | `config/config.css` | `presentation/theme/tokens.ts` + `typography.ts` |
 | `config/routes/routes.js` | desaparece — expo-router usa o sistema de arquivos |
-| `shared/sidebar.js` | `app/(tabs)/_layout.tsx` |
-| `shared/footer.js` | tela "Sobre" ou rodapé da aba Perfil |
+| `shared/sidebar.js` | `app/(tabs)/_layout.tsx` (botão do meio: `BotaoDocumento`; perfil: avatar no `CabecalhoAba`) |
+| `shared/footer.js` | tela "Sobre" ou rodapé do Perfil |
 | `shared/toggle_senha.js` | `components/ui/PasswordInput.tsx` |
 | `shared/telegram_widget.js` | `components/ui/TelegramFab.tsx` (`Linking.openURL`) |
 | `sintomas_ai/api.js` — prompt, parse, chave | Edge Function `triagem` em `services/` |
 | `sintomas_ai/api.js` — `niveis` + `create_feedback.js` | `domain/entities/Triagem.ts` (`NIVEIS`, cor e texto juntos) |
-| `sintomas_ai/api.js` — `localStorage` de sessões | removido; histórico vem do banco |
+| `sintomas_ai/api.js` — `localStorage` de sessões | removido; histórico vem do banco e vira o contexto de saúde (`montarContexto`) |
 | `farmacias_pages/js/create_map.js` | `components/features/FarmaciasMap.tsx` (`react-native-maps`) |
 | `farmacias_pages/js/create_bairros.js` | `bairrosDe()` derivado da lista + `BairroPicker` |
 | `primeiro_socorros_pages/js/dicas.js` + `init_primeiros_socorros.js` (HTML em string) | `data/static/primeirosSocorros.ts` — blocos tipados, renderizados por `components/features/conteudo/` |
 | `prevencao_pages/js/info_prevencao.js` | `data/static/prevencao.ts` |
 | `<iframe>` do YouTube em `init_primeiros_socorros.js` | `components/features/conteudo/VideoYouTube.tsx` (capa que abre o app do YouTube) |
-| `pre_prontuario_pages/pre_prontuario.js` | `app/pre-prontuario.tsx` + `PreProntuarioForm` |
+| `pre_prontuario_pages/pre_prontuario.js` | `app/documento.tsx` + `ProntuarioForm` (edição manual) + `useConcluirPreProntuario` |
 | `window.print()` / jsPDF | `expo-print` (HTML → PDF) + `expo-sharing` |
 | `window.location.href = …` | `router.push()` / `<Redirect>` |
 | `localStorage` | `AsyncStorage` (dados comuns) / `SecureStore` (sessão) |
@@ -1180,4 +1203,7 @@ O site **ainda chama o Gemini direto do navegador**, então a `VITE_API_KEY` con
 | `@expo-google-fonts/outfit` | Fonte do site |
 | `expo-sharing` | Compartilhar pré-prontuário |
 | `expo-print` | PDF do pré-prontuário (substitui o jsPDF do site) |
-| `jest` + `@testing-library/react-native` | Testes (`domain/` testa sem mocks) |
+| `expo-screen-capture` | Bloqueio de print/gravação nas telas com dados de saúde |
+| `jest` + `@testing-library/react-native` | Testes do app (`domain/` testa sem mocks) |
+| `deno` (dev, em `services/`) | Testes e checagem de tipos da Edge Function |
+| `@google/genai` (na Edge Function) | Gemini; isolado em `modelo.ts` |
