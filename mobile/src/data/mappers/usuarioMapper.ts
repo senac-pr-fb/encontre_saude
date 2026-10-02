@@ -5,6 +5,7 @@ export const usuarioMapper = {
   toEntity(u: User): Usuario {
     const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
     const nome = (meta.full_name ?? meta.name) as string | undefined;
-    return { id: u.id, email: u.email ?? '', nome: nome ?? null };
+    const foto = (meta.avatar_url ?? meta.picture) as string | undefined;
+    return { id: u.id, email: u.email ?? '', nome: nome ?? null, foto: foto ?? null };
   },
 };

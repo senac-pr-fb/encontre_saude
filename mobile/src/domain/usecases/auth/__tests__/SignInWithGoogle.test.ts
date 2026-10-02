@@ -24,7 +24,7 @@ function criarRepoFake(): jest.Mocked<AuthRepository> {
 describe('SignInWithGoogle', () => {
   it('delega diretamente ao repositório', async () => {
     const repo = criarRepoFake();
-    const usuario: Usuario = { id: '1', email: 'a@b.com', nome: 'Fulano' };
+    const usuario: Usuario = { id: '1', email: 'a@b.com', nome: 'Fulano', foto: null };
     repo.signInWithGoogle.mockResolvedValue(ok(usuario));
 
     const resultado = await new SignInWithGoogle(repo).execute();

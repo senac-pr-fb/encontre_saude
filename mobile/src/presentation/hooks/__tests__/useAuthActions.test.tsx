@@ -16,6 +16,7 @@ jest.mock('@core/di/container', () => ({
       signOut: { execute: jest.fn() },
       recuperarSenha: { execute: jest.fn() },
       atualizarSenha: { execute: jest.fn() },
+      repo: { atualizarNome: jest.fn() },
     },
   },
 }));
@@ -60,7 +61,7 @@ describe('useAuthActions', () => {
     expect(container.auth.signOut.execute).toHaveBeenCalledTimes(1);
   });
 
-  it('expõe as seis mutations esperadas', async () => {
+  it('expõe as sete mutations esperadas', async () => {
     const { result } = await renderHook(() => useAuthActions(), { wrapper: criarWrapper() });
 
     expect(Object.keys(result.current)).toEqual([
@@ -70,6 +71,19 @@ describe('useAuthActions', () => {
       'signOut',
       'recuperarSenha',
       'atualizarSenha',
+      'atualizarNome',
     ]);
+  });
+});
+
+describe('useAuthActions.atualizarNome', () => {
+  it('grava o nome na conta', async () => {
+    (container.auth.repo.atualizarNome as jest.Mock).mockResolvedValue(ok(undefined));
+
+    const { result } = await renderHook(() => useAuthActions(), { wrapper: criarWrapper() });
+    result.current.atualizarNome.mutate('Maria Souza');
+
+    await waitFor(() => expect(result.current.atualizarNome.isSuccess).toBe(true));
+    expect(container.auth.repo.atualizarNome).toHaveBeenCalledWith('Maria Souza');
   });
 });

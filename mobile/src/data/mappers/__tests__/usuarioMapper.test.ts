@@ -38,4 +38,16 @@ describe('usuarioMapper.toEntity', () => {
     const entidade = usuarioMapper.toEntity(criarUser({ user_metadata: {} }));
     expect(entidade.nome).toBeNull();
   });
+
+  it('lê a foto de user_metadata.avatar_url (preenchido pelo Google)', () => {
+    const entidade = usuarioMapper.toEntity(criarUser({ user_metadata: { avatar_url: 'https://foto/a.jpg' } }));
+    expect(entidade.foto).toBe('https://foto/a.jpg');
+  });
+
+  it('usa user_metadata.picture como alternativa e null sem foto', () => {
+    expect(usuarioMapper.toEntity(criarUser({ user_metadata: { picture: 'https://foto/b.jpg' } })).foto).toBe(
+      'https://foto/b.jpg',
+    );
+    expect(usuarioMapper.toEntity(criarUser()).foto).toBeNull();
+  });
 });

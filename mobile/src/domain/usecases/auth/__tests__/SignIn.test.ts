@@ -24,7 +24,7 @@ function criarRepoFake(): jest.Mocked<AuthRepository> {
 describe('SignIn', () => {
   it('delega ao repositório quando os dados são válidos', async () => {
     const repo = criarRepoFake();
-    const usuario: Usuario = { id: '1', email: 'a@b.com', nome: null };
+    const usuario: Usuario = { id: '1', email: 'a@b.com', nome: null, foto: null };
     repo.signIn.mockResolvedValue(ok(usuario));
 
     const resultado = await new SignIn(repo).execute({ email: 'a@b.com', senha: '123456' });

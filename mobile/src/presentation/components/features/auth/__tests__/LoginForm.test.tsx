@@ -48,7 +48,7 @@ describe('LoginForm', () => {
     const props = propsPadrao();
     await render(<LoginForm {...props} />);
 
-    await fireEvent.press(screen.getByText('Entrar com Google'));
+    await fireEvent.press(screen.getByText('Continuar com o Google'));
     await fireEvent.press(screen.getByText('Esqueceu a senha?'));
     await fireEvent.press(screen.getByText('Não tem conta? Cadastre-se'));
 

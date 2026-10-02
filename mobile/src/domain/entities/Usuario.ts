@@ -3,4 +3,6 @@ export interface Usuario {
   email: string;
   /** user_metadata.full_name — preenchido pelo Google; null no cadastro por e-mail. */
   nome: string | null;
+  /** user_metadata.avatar_url — foto da conta Google; null no cadastro por e-mail. */
+  foto: string | null;
 }

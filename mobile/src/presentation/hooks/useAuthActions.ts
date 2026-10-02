@@ -34,5 +34,10 @@ export function useAuthActions() {
     mutationFn: (input: NovaSenhaInput) => auth.atualizarSenha.execute(input).then(unwrap),
   });
 
-  return { signIn, signUp, signInWithGoogle, signOut, recuperarSenha, atualizarSenha };
+  // O AuthProvider recebe o nome novo pelo evento USER_UPDATED.
+  const atualizarNome = useMutation({
+    mutationFn: (nome: string) => auth.repo.atualizarNome(nome).then(unwrap),
+  });
+
+  return { signIn, signUp, signInWithGoogle, signOut, recuperarSenha, atualizarSenha, atualizarNome };
 }

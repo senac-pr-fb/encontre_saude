@@ -1,20 +1,23 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useAuth } from '@presentation/providers/AuthProvider';
 import { useContextoSaude } from '@presentation/hooks/useContextoSaude';
-import { colors, fonts, fontSizes } from '@presentation/theme';
+import { colors } from '@presentation/theme';
 
 /**
- * Avatar do canto superior direito. O perfil saiu da navbar; o ponto de aviso
- * aparece enquanto a ficha não tem os dados que o documento exige.
+ * Avatar do canto superior direito: a foto da conta Google quando houver, senão
+ * o ícone de usuário. O ponto de aviso aparece enquanto a ficha não tem os
+ * dados que o documento exige.
  */
 export function BotaoPerfil() {
   const router = useRouter();
   const { usuario } = useAuth();
   const { contexto } = useContextoSaude();
   const pendente = (contexto?.faltantes.length ?? 0) > 0;
-  const inicial = (usuario?.nome ?? usuario?.email ?? '').trim().charAt(0).toUpperCase();
+  const [fotoFalhou, setFotoFalhou] = useState(false);
+  const foto = fotoFalhou ? null : usuario?.foto;
 
   return (
     <Pressable
@@ -24,10 +27,10 @@ export function BotaoPerfil() {
       hitSlop={8}
       style={({ pressed }) => [styles.avatar, pressed && styles.pressionado]}
     >
-      {inicial ? (
-        <Text style={styles.inicial}>{inicial}</Text>
+      {foto ? (
+        <Image source={{ uri: foto }} style={styles.foto} onError={() => setFotoFalhou(true)} testID="perfil-foto" />
       ) : (
-        <FontAwesome6 name="user" size={16} color={colors.greenDark} />
+        <FontAwesome6 name="user" size={16} color={colors.greenDark} testID="perfil-icone" />
       )}
       {pendente ? <View style={styles.aviso} testID="perfil-pendente" /> : null}
     </Pressable>
@@ -48,7 +51,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pressionado: { opacity: 0.7 },
-  inicial: { fontFamily: fonts.semibold, fontSize: fontSizes.md, color: colors.greenDark },
+  foto: { width: '100%', height: '100%', borderRadius: TAMANHO / 2 },
   aviso: {
     position: 'absolute',
     top: 0,

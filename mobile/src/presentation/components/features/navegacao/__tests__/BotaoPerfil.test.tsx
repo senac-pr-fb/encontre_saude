@@ -10,23 +10,35 @@ jest.mock('@presentation/hooks/useContextoSaude', () => ({ useContextoSaude: jes
 
 beforeEach(() => {
   mockPush.mockClear();
-  (useAuth as jest.Mock).mockReturnValue({ usuario: { id: 'u', email: 'maria@x.com', nome: 'maria souza' } });
+  (useAuth as jest.Mock).mockReturnValue({ usuario: { id: 'u', email: 'maria@x.com', nome: 'maria souza', foto: null } });
   (useContextoSaude as jest.Mock).mockReturnValue({ contexto: { faltantes: [] } });
 });
 
 describe('BotaoPerfil', () => {
-  it('mostra a inicial do nome e abre o perfil', async () => {
+  it('mostra o ícone de usuário quando a conta não tem foto e abre o perfil', async () => {
     await render(<BotaoPerfil />);
-    expect(screen.getByText('M')).toBeTruthy();
+    expect(screen.getByTestId('perfil-icone')).toBeTruthy();
+    expect(screen.queryByTestId('perfil-foto')).toBeNull();
 
     await fireEvent.press(screen.getByRole('button'));
     expect(mockPush).toHaveBeenCalledWith('/perfil');
   });
 
-  it('usa o e-mail quando a conta não tem nome', async () => {
-    (useAuth as jest.Mock).mockReturnValue({ usuario: { id: 'u', email: 'joao@x.com', nome: null } });
+  it('reaproveita a foto da conta Google', async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      usuario: { id: 'u', email: 'joao@x.com', nome: 'João', foto: 'https://foto/j.jpg' },
+    });
     await render(<BotaoPerfil />);
-    expect(screen.getByText('J')).toBeTruthy();
+    expect(screen.getByTestId('perfil-foto').props.source).toEqual({ uri: 'https://foto/j.jpg' });
+  });
+
+  it('volta para o ícone quando a foto não carrega', async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      usuario: { id: 'u', email: 'joao@x.com', nome: 'João', foto: 'https://foto/j.jpg' },
+    });
+    await render(<BotaoPerfil />);
+    await fireEvent(screen.getByTestId('perfil-foto'), 'error');
+    expect(screen.getByTestId('perfil-icone')).toBeTruthy();
   });
 
   it('sinaliza quando faltam dados obrigatórios na ficha', async () => {

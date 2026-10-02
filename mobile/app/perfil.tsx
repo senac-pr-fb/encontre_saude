@@ -1,8 +1,9 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Body, Button, ErrorMessage, Screen, Subtitle } from '@presentation/components/ui';
+import { Button, ErrorMessage, Screen, Subtitle } from '@presentation/components/ui';
 import { PerfilForm } from '@presentation/components/features/perfil/PerfilForm';
 import { ResumoFicha } from '@presentation/components/features/perfil/ResumoFicha';
+import { NomeUsuario } from '@presentation/components/features/perfil/NomeUsuario';
 import { useAuth } from '@presentation/providers/AuthProvider';
 import { useAuthActions } from '@presentation/hooks/useAuthActions';
 import { usePerfil } from '@presentation/hooks/usePerfil';
@@ -18,14 +19,20 @@ import { colors, fonts, fontSizes, spacing } from '@presentation/theme';
 export default function PerfilScreen() {
   const router = useRouter();
   const { usuario } = useAuth();
-  const { signOut } = useAuthActions();
+  const { signOut, atualizarNome } = useAuthActions();
   const { perfil, carregando, erroCarregar, salvar } = usePerfil();
   const { contexto } = useContextoSaude();
   useTelaProtegida('perfil');
 
   return (
     <Screen>
-      {usuario?.nome ? <Body>{usuario.nome}</Body> : null}
+      <NomeUsuario
+        nome={usuario?.nome ?? null}
+        onSalvar={(nome) => atualizarNome.mutate(nome)}
+        salvando={atualizarNome.isPending}
+        erro={atualizarNome.error?.message}
+        sucesso={atualizarNome.isSuccess}
+      />
       <Subtitle>{usuario?.email}</Subtitle>
 
       <ErrorMessage message={erroCarregar} />

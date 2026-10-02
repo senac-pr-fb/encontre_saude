@@ -41,7 +41,7 @@ describe('SupabaseAuthRepository.signIn', () => {
 
     expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({ email: 'a@b.com', password: '123456' });
     expect(resultado.ok).toBe(true);
-    if (resultado.ok) expect(resultado.value).toEqual({ id: 'user-1', email: 'a@b.com', nome: null });
+    if (resultado.ok) expect(resultado.value).toEqual({ id: 'user-1', email: 'a@b.com', nome: null, foto: null });
   });
 
   it('traduz o erro do Supabase', async () => {
@@ -129,7 +129,7 @@ describe('SupabaseAuthRepository.getUsuarioAtual', () => {
 
     const usuario = await new SupabaseAuthRepository(supabase).getUsuarioAtual();
 
-    expect(usuario).toEqual({ id: 'user-1', email: 'a@b.com', nome: null });
+    expect(usuario).toEqual({ id: 'user-1', email: 'a@b.com', nome: null, foto: null });
   });
 
   it('devolve null quando não há sessão', async () => {
@@ -156,7 +156,7 @@ describe('SupabaseAuthRepository.onAuthStateChange', () => {
     const parar = new SupabaseAuthRepository(supabase).onAuthStateChange(cb);
 
     callbackRegistrado?.('SIGNED_IN', { user: criarUserFake() });
-    expect(cb).toHaveBeenCalledWith({ id: 'user-1', email: 'a@b.com', nome: null }, 'SIGNED_IN');
+    expect(cb).toHaveBeenCalledWith({ id: 'user-1', email: 'a@b.com', nome: null, foto: null }, 'SIGNED_IN');
 
     callbackRegistrado?.('SIGNED_OUT', null);
     expect(cb).toHaveBeenCalledWith(null, 'SIGNED_OUT');
@@ -301,7 +301,7 @@ describe('SupabaseAuthRepository.signInWithGoogle', () => {
 
     expect(supabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('abc');
     expect(resultado.ok).toBe(true);
-    if (resultado.ok) expect(resultado.value).toEqual({ id: 'user-1', email: 'a@b.com', nome: null });
+    if (resultado.ok) expect(resultado.value).toEqual({ id: 'user-1', email: 'a@b.com', nome: null, foto: null });
   });
 
   it('não aceita tokens soltos no retorno do OAuth', async () => {
