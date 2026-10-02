@@ -7,6 +7,6 @@ export const ROUTES = {
 };
 
 export const APP_DOWNLOAD = {
-    url: "https://drive.google.com/file/d/1OFSwwHenmf3HXL_K25B-T5rGzpEb4urX/view?usp=sharing",
+    url: "https://drive.google.com/file/d/1XqoS18sFtzj3XX8VO6KVuYVUnHZGJjGM/view?usp=sharing",
     qrCode: "/assets/qrcode-app.png",
 };
